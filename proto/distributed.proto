@@ -1,0 +1,593 @@
+/*
+ * @Author: kamalyes 501893067@qq.com
+ * @Date: 2026-03-27 00:00:00
+ * @LastEditors: kamalyes 501893067@qq.com
+ * @LastEditTime: 2026-03-28 00:00:00
+ * @Description: 分布式通信协议定义 - Master 与 Worker 之间的 gRPC 消息和服务
+ *
+ * 协议架构:
+ *   ┌─────────────────────────────────────────────────────────┐
+ *   │                    MasterService                        │
+ *   │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+ *   │  │ RegisterNode │  │  Heartbeat   │  │UnregisterNode│  │
+ *   │  │  (Unary RPC) │  │  (Unary RPC) │  │  (Unary RPC) │  │
+ *   │  └──────────────┘  └──────────────┘  └──────────────┘  │
+ *   │  ┌──────────────┐  ┌──────────────────────────────────┐ │
+ *   │  │ReportTaskSts │  │       ConnectStream              │ │
+ *   │  │  (Unary RPC) │  │  (Bidirectional Streaming)       │ │
+ *   │  └──────────────┘  │  Worker → Master: WorkerReport   │ │
+ *   │                     │  Master → Worker: MasterCommand  │ │
+ *   │                     └──────────────────────────────────┘ │
+ *   └─────────────────────────────────────────────────────────┘
+ *   ┌─────────────────────────────────────────────────────────┐
+ *   │                    WorkerService                        │
+ *   │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+ *   │  │ DispatchTask │  │  CancelTask  │  │  HealthCheck │  │
+ *   │  │  (Unary RPC) │  │  (Unary RPC) │  │  (Unary RPC) │  │
+ *   │  └──────────────┘  └──────────────┘  └──────────────┘  │
+ *   │  ┌──────────────┐  ┌──────────────┐                    │
+ *   │  │ QueryTasks   │  │UpdateCapacity│                    │
+ *   │  │  (Unary RPC) │  │  (Unary RPC) │                    │
+ *   │  └──────────────┘  └──────────────┘                    │
+ *   └─────────────────────────────────────────────────────────┘
+ *
+ * 通信模式:
+ *   1. 混合模式（推荐）: ConnectStream 双向流 + WorkerService Unary RPC
+ *      - 实时任务通过双向流下发，适合高频小任务
+ *      - 大任务通过 Unary RPC 直接下发，适合低频大任务
+ *   2. 纯 Unary 模式: 仅使用 WorkerService.DispatchTask
+ *      - 适合网络环境不稳定、不需要实时推送的场景
+ *   3. 纯 Stream 模式: 仅使用 ConnectStream
+ *      - 适合需要持续通信、低延迟的场景
+ *
+ * 节点生命周期:
+ *   注册(Register) → 心跳保活(Heartbeat) → 运行中(Ready)
+ *     → 排空(Drain) → 注销(Unregister) / 断开(Disconnect)
+ *     异常: → 重连(Reconnect) → 恢复(Recover)
+ *
+ * 任务生命周期:
+ *   Pending → Scheduled → Dispatched → Running → Succeeded/Failed
+ *                                  ↘ Timeout    ↘ Cancelled
+ *                      Failed/Timeout → Retrying → Pending
+ *
+ * 连接生命周期:
+ *   Disconnected → Connecting → Connected → Ready → Draining → Disconnected
+ *                            ↘ Reconnecting → Connected/Disconnected
+ *
+ * Copyright (c) 2026 by kamalyes, All Rights Reserved.
+ */
+
+syntax = "proto3";
+
+package distributed;
+
+option go_package = "github.com/kamalyes/go-distributed/proto;proto";
+
+// =====================================================================
+// 枚举定义
+// =====================================================================
+
+// NodeState 节点运行状态
+// 用于心跳上报和节点池管理，Master 据此进行负载均衡和任务调度决策
+enum NodeState {
+  NODE_STATE_UNSPECIFIED = 0;  // 未指定（默认值，不应出现）
+  NODE_STATE_IDLE = 1;         // 空闲 - 可接受新任务
+  NODE_STATE_RUNNING = 2;      // 运行中 - 正在执行任务，仍可接受新任务
+  NODE_STATE_BUSY = 3;         // 繁忙 - 任务接近饱和，建议不再分配
+  NODE_STATE_ERROR = 4;        // 错误 - 节点异常，不可分配任务
+  NODE_STATE_OFFLINE = 5;      // 离线 - 节点已断开连接
+  NODE_STATE_OVERLOADED = 6;   // 过载 - 节点资源不足，拒绝新任务
+  NODE_STATE_DRAINING = 7;     // 排空中 - 正在完成已有任务，不再接受新任务
+}
+
+// TaskState 任务执行状态
+// 完整的任务状态机，覆盖从创建到终态的全生命周期
+enum TaskState {
+  TASK_STATE_UNSPECIFIED = 0;  // 未指定（默认值，不应出现）
+  TASK_STATE_PENDING = 1;      // 待调度 - 任务已创建，等待 Master 分配节点
+  TASK_STATE_SCHEDULED = 2;    // 已调度 - Master 已选定目标节点，准备下发
+  TASK_STATE_DISPATCHED = 3;   // 已下发 - 任务已发送到 Worker，等待执行
+  TASK_STATE_RUNNING = 4;      // 执行中 - Worker 正在执行任务
+  TASK_STATE_SUCCEEDED = 5;    // 成功 - 任务执行完成且结果正确（终态）
+  TASK_STATE_FAILED = 6;       // 失败 - 任务执行失败（可重试，非终态）
+  TASK_STATE_CANCELLED = 7;    // 已取消 - 任务被主动取消（终态）
+  TASK_STATE_TIMEOUT = 8;      // 超时 - 任务执行超时（可重试，非终态）
+  TASK_STATE_RETRYING = 9;     // 重试中 - 任务失败后正在准备重新调度
+}
+
+// ConnectionState 连接状态
+// 用于双向流连接的生命周期管理
+enum ConnectionState {
+  CONNECTION_STATE_UNSPECIFIED = 0;  // 未指定
+  CONNECTION_STATE_DISCONNECTED = 1; // 已断开
+  CONNECTION_STATE_CONNECTING = 2;   // 连接中
+  CONNECTION_STATE_CONNECTED = 3;    // 已连接（TCP 建立但未就绪）
+  CONNECTION_STATE_READY = 4;        // 就绪（认证通过，可正常通信）
+  CONNECTION_STATE_DRAINING = 5;     // 排空中（不再接受新任务，等待已有任务完成）
+  CONNECTION_STATE_RECONNECTING = 6; // 重连中
+}
+
+// =====================================================================
+// 基础消息
+// =====================================================================
+
+// BaseNodeInfo 节点基础信息
+// 注册时由 Worker 上报，Master 据此进行节点管理和负载评估
+message BaseNodeInfo {
+  string node_id = 1;             // 节点唯一标识（使用雪花算法生成）
+  string hostname = 2;            // 主机名
+  string ip = 3;                  // IP 地址（Worker 的 gRPC 服务地址）
+  int32 grpc_port = 4;            // gRPC 服务端口（Worker 侧，供 Master 反向调用）
+  int32 cpu_cores = 5;            // CPU 核心数（用于负载评估）
+  int64 memory = 6;               // 内存容量（字节，用于负载评估）
+  string version = 7;             // Worker 版本号（用于兼容性检查）
+  string region = 8;              // 地域标签（用于亲和性调度）
+  map<string, string> labels = 9; // 自定义标签（用于灵活的调度策略）
+}
+
+// NodeCapacity 节点实时容量信息
+// Worker 运行时动态更新，反映当前资源使用情况
+message NodeCapacity {
+  int32 running_tasks = 1;        // 正在执行的任务数
+  int32 max_concurrent_tasks = 2; // 最大并发任务数
+  double cpu_usage = 3;           // CPU 使用率（0.0 ~ 1.0）
+  double memory_usage = 4;        // 内存使用率（0.0 ~ 1.0）
+  int64 available_memory = 5;     // 可用内存（字节）
+  double load_avg_1m = 6;         // 1 分钟平均负载
+  double load_avg_5m = 7;         // 5 分钟平均负载
+  double load_avg_15m = 8;        // 15 分钟平均负载
+}
+
+// =====================================================================
+// 节点管理消息
+// =====================================================================
+
+// RegisterRequest 节点注册请求
+// Worker 启动后向 Master 发送，携带节点基础信息和业务扩展数据
+message RegisterRequest {
+  BaseNodeInfo node_info = 1;     // 节点基础信息
+  NodeCapacity capacity = 2;      // 初始容量信息
+  bytes extension = 10;           // 业务扩展数据（如自定义节点能力描述）
+}
+
+// RegisterResponse 节点注册响应
+// Master 返回注册结果，包含认证令牌和心跳间隔配置
+message RegisterResponse {
+  bool success = 1;               // 注册是否成功
+  string message = 2;             // 结果描述（失败时包含原因）
+  string token = 3;               // 认证令牌（后续通信需携带）
+  int64 heartbeat_interval = 4;   // 心跳间隔（毫秒，Master 动态分配）
+  int64 session_id = 5;           // 会话 ID（用于重连恢复，雪花算法生成）
+}
+
+// HeartbeatRequest 心跳请求
+// Worker 定期发送，维持与 Master 的连接活性并上报当前状态
+message HeartbeatRequest {
+  string node_id = 1;             // 节点 ID
+  int64 timestamp = 2;            // 心跳时间戳（毫秒）
+  NodeState state = 3;            // 当前节点状态
+  NodeCapacity capacity = 4;      // 当前容量信息（每次心跳附带最新值）
+  bytes status_extension = 10;    // 状态扩展数据（如实时负载详情）
+}
+
+// HeartbeatResponse 心跳响应
+// Master 确认心跳并可能下发控制命令
+message HeartbeatResponse {
+  bool ok = 1;                    // 心跳是否被接受
+  string message = 2;             // 响应描述
+  repeated string commands = 3;   // Master 下发的控制命令（如 "drain", "reload_config"）
+  int64 server_time = 4;          // Master 服务器时间（用于时钟同步）
+}
+
+// UnregisterRequest 节点注销请求
+// Worker 主动下线时发送，Master 据此将节点标记为离线并重新分配其任务
+message UnregisterRequest {
+  string node_id = 1;             // 节点 ID
+  string reason = 2;              // 注销原因（如 "shutdown", "maintenance"）
+  bool force = 3;                 // 是否强制注销（不等任务完成）
+}
+
+// UnregisterResponse 节点注销响应
+message UnregisterResponse {
+  bool success = 1;               // 注销是否成功
+  string message = 2;             // 响应描述
+  int32 pending_tasks = 3;        // 仍有未完成的任务数（force=false 时为 0）
+}
+
+// =====================================================================
+// 任务管理消息
+// =====================================================================
+
+// TaskInfo 任务信息
+// 任务的完整描述，在 Master 和 Worker 之间传递
+// task_id 使用雪花算法生成，全局唯一且可排序
+message TaskInfo {
+  string task_id = 1;             // 任务唯一标识（雪花算法 ID）
+  string task_type = 2;           // 任务类型（command/script/http/scheduler/stress/custom）
+  bytes payload = 3;              // 任务载荷（序列化的任务参数）
+  int32 priority = 4;             // 优先级（0=最低，数值越大优先级越高）
+  int32 max_retries = 5;          // 最大重试次数
+  int64 timeout_ms = 6;           // 超时时间（毫秒，0=不限时）
+  map<string, string> metadata = 7; // 任务元数据（如 trace_id, cron_expression 等）
+  string target_node_id = 8;      // 目标节点 ID（空=由 Master 自动选择）
+  TaskState state = 9;            // 当前任务状态
+  int64 created_at = 10;          // 创建时间戳（毫秒）
+  int32 retry_count = 11;         // 已重试次数
+}
+
+// DispatchTaskRequest 任务下发请求（Master → Worker）
+// 通过 WorkerService.DispatchTask Unary RPC 发送
+// 适用于大任务、低频任务或双向流不可用时的降级方案
+message DispatchTaskRequest {
+  TaskInfo task = 1;              // 任务信息
+  string token = 2;               // 认证令牌（注册时获取）
+}
+
+// DispatchTaskResponse 任务下发响应（Worker → Master）
+// Worker 返回是否接受该任务
+message DispatchTaskResponse {
+  bool accepted = 1;              // 是否接受任务（拒绝时 message 说明原因）
+  string message = 2;             // 响应描述（如 "node overloaded", "unsupported task type"）
+}
+
+// TaskStatusUpdate 任务状态更新（Worker → Master）
+// Worker 在任务执行过程中主动上报状态变更
+// 可通过 ReportTaskStatus Unary RPC 或 ConnectStream 双向流发送
+message TaskStatusUpdate {
+  string task_id = 1;             // 任务 ID
+  string node_id = 2;             // 执行节点 ID
+  TaskState state = 3;            // 新状态
+  bytes result = 4;               // 任务结果数据（终态时填充）
+  string error_message = 5;       // 错误信息（失败时填充）
+  float progress = 6;             // 执行进度（0.0 ~ 1.0）
+  int64 timestamp = 7;            // 状态变更时间戳（毫秒）
+  int32 retry_count = 8;          // 当前重试次数
+}
+
+// TaskStatusUpdateResponse 任务状态更新响应
+// Master 确认已收到状态更新
+message TaskStatusUpdateResponse {
+  bool acknowledged = 1;          // 是否已确认
+  string message = 2;             // 响应描述（如 "task will be retried"）
+}
+
+// CancelTaskRequest 取消任务请求（Master → Worker）
+// Master 主动取消正在执行的任务
+message CancelTaskRequest {
+  string task_id = 1;             // 任务 ID
+  string reason = 2;              // 取消原因
+  bool force = 3;                 // 是否强制取消（不等任务优雅退出）
+}
+
+// CancelTaskResponse 取消任务响应
+message CancelTaskResponse {
+  bool success = 1;               // 是否成功取消（任务可能已结束）
+  string message = 2;             // 响应描述
+  TaskState final_state = 3;      // 任务最终状态（可能已是 Succeeded/Failed）
+}
+
+// QueryTasksRequest 查询任务请求（Master → Worker）
+// Master 查询 Worker 上运行中的任务列表
+message QueryTasksRequest {
+  string node_id = 1;             // 节点 ID
+  repeated TaskState filter_states = 2; // 按状态过滤（空=返回所有）
+  string task_type_filter = 3;    // 按类型过滤（空=返回所有）
+  int32 limit = 4;                // 返回数量限制（0=不限制）
+}
+
+// QueryTasksResponse 查询任务响应
+message QueryTasksResponse {
+  repeated TaskInfo tasks = 1;    // 任务列表
+  int32 total_count = 2;          // 符合条件的总任务数
+}
+
+// =====================================================================
+// 连接生命周期消息
+// =====================================================================
+
+// ConnectRequest 连接请求（Worker → Master 建立双向流）
+// Worker 通过 ConnectStream 发送的首条消息，用于身份验证
+// 若携带 session_id 则为重连恢复，Master 据此恢复之前的任务状态
+message ConnectRequest {
+  string node_id = 1;             // 节点 ID
+  string token = 2;               // 认证令牌
+  BaseNodeInfo node_info = 3;     // 节点信息（连接时可能需要更新）
+  int64 session_id = 4;           // 会话 ID（重连时携带，0=新连接）
+  NodeCapacity capacity = 5;      // 当前容量信息
+}
+
+// ConnectResponse 连接响应（Master → Worker）
+// Master 确认连接并返回配置
+message ConnectResponse {
+  bool accepted = 1;              // 是否接受连接
+  string message = 2;             // 响应描述
+  int64 heartbeat_interval_ms = 3; // 心跳间隔（毫秒）
+  int64 session_id = 4;           // 分配的会话 ID（新连接时生成）
+  bool recovered = 5;             // 是否成功恢复之前的会话状态
+  repeated TaskInfo recovered_tasks = 6; // 恢复的任务列表（重连时返回）
+}
+
+// DisconnectRequest 优雅断开请求（Worker → Master）
+// Worker 主动断开双向流前发送，告知 Master 即将下线
+message DisconnectRequest {
+  string node_id = 1;             // 节点 ID
+  string reason = 2;              // 断开原因
+  bool drain_complete = 3;        // 排空是否完成
+  int32 remaining_tasks = 4;      // 仍在运行的任务数
+}
+
+// DisconnectResponse 断开响应（Master → Worker）
+message DisconnectResponse {
+  bool acknowledged = 1;          // 是否确认断开
+  string message = 2;             // 响应描述
+  bool force_unregister = 3;      // Master 是否要求立即注销（不等任务完成）
+}
+
+// DrainCompleteRequest 排空完成通知（Worker → Master）
+// Worker 完成 drain 后告知 Master，所有已有任务已执行完毕
+message DrainCompleteRequest {
+  string node_id = 1;             // 节点 ID
+  int32 completed_tasks = 2;      // 排空期间完成的任务数
+  int32 failed_tasks = 3;         // 排空期间失败的任务数
+}
+
+// DrainCompleteResponse 排空完成响应
+message DrainCompleteResponse {
+  bool acknowledged = 1;          // 是否确认
+  string message = 2;             // 响应描述
+}
+
+// UpdateCapacityRequest 容量更新请求（Worker → Master）
+// Worker 运行时资源变化时主动上报
+message UpdateCapacityRequest {
+  string node_id = 1;             // 节点 ID
+  NodeCapacity capacity = 2;      // 最新容量信息
+}
+
+// UpdateCapacityResponse 容量更新响应
+message UpdateCapacityResponse {
+  bool acknowledged = 1;          // 是否确认
+  NodeState suggested_state = 2;  // Master 建议的节点状态（如过载时建议 BUSY）
+}
+
+// HealthCheckRequest 健康检查请求（Master → Worker）
+// Master 主动探测 Worker 存活状态
+message HealthCheckRequest {
+  string node_id = 1;             // 目标节点 ID
+  int64 timestamp = 2;            // 检查时间戳
+}
+
+// HealthCheckResponse 健康检查响应
+message HealthCheckResponse {
+  bool healthy = 1;               // 是否健康
+  NodeState state = 2;            // 当前节点状态
+  NodeCapacity capacity = 3;      // 当前容量
+  int64 uptime_ms = 4;            // 运行时长（毫秒）
+  int32 active_tasks = 5;         // 活跃任务数
+  string version = 6;             // Worker 版本
+}
+
+// =====================================================================
+// 双向流消息
+// =====================================================================
+
+// MasterCommand Master 下发的命令（双向流中 Master → Worker）
+// 使用 oneof 实现命令多态，后续可扩展新命令类型
+message MasterCommand {
+  oneof command {
+    DispatchTaskRequest dispatch_task = 1;   // 下发任务（实时推送）
+    CancelTaskRequest cancel_task = 2;       // 取消任务
+    string drain_command = 3;                // 排空命令（通知 Worker 停止接受新任务）
+    ConnectResponse connect_response = 4;    // 连接确认响应
+    DisconnectResponse disconnect_response = 5; // 断开确认响应
+    UpdateCapacityResponse capacity_response = 6; // 容量更新确认
+  }
+}
+
+// WorkerReport Worker 上报的消息（双向流中 Worker → Master）
+// 使用 oneof 实现消息多态，支持心跳、状态上报和连接请求
+message WorkerReport {
+  oneof report {
+    ConnectRequest connect = 1;              // 连接请求（首次连接或重连时发送）
+    HeartbeatRequest heartbeat = 2;          // 心跳（复用现有消息）
+    TaskStatusUpdate task_status = 3;        // 任务状态更新（实时上报）
+    DisconnectRequest disconnect = 4;        // 优雅断开请求
+    DrainCompleteRequest drain_complete = 5; // 排空完成通知
+    UpdateCapacityRequest capacity_update = 6; // 容量更新
+  }
+}
+
+// =====================================================================
+// 服务定义
+// =====================================================================
+
+// MasterService Master 端服务
+// Worker 作为客户端调用此服务完成注册、心跳、任务回报等操作
+service MasterService {
+  // RegisterNode 节点注册
+  // Worker 启动后调用，向 Master 注册节点信息
+  // 返回认证令牌、心跳间隔和会话 ID
+  rpc RegisterNode(RegisterRequest) returns (RegisterResponse);
+
+  // Heartbeat 心跳保活
+  // Worker 定期调用，维持连接活性并上报节点状态和容量
+  // Master 可通过响应下发控制命令
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse);
+
+  // UnregisterNode 节点注销
+  // Worker 主动下线时调用，Master 据此重新分配该节点的任务
+  // force=false 时 Master 会等待该节点任务完成后再注销
+  rpc UnregisterNode(UnregisterRequest) returns (UnregisterResponse);
+
+  // ReportTaskStatus 任务状态回报
+  // Worker 通过 Unary RPC 上报任务状态变更
+  // 适用于非流式模式或作为流式模式的补充
+  rpc ReportTaskStatus(TaskStatusUpdate) returns (TaskStatusUpdateResponse);
+
+  // ConnectStream 双向流式连接
+  // Worker 发起，建立持久化的双向通信通道
+  // - Worker → Master: 连接请求、心跳、任务状态上报、断开请求、排空完成、容量更新
+  // - Master → Worker: 任务下发、取消命令、排空命令、连接确认、断开确认、容量确认
+  // 适用于需要实时通信和低延迟任务下发的场景
+  // 支持重连恢复：携带 session_id 可恢复之前的会话状态
+  rpc ConnectStream(stream WorkerReport) returns (stream MasterCommand);
+}
+
+// WorkerService Worker 端服务
+// Master 作为客户端调用此服务完成任务的直接下发、取消和健康检查
+// Worker 需要启动独立的 gRPC 服务器来接收这些请求
+service WorkerService {
+  // DispatchTask 任务下发（Unary RPC）
+  // Master 直接向 Worker 下发任务
+  // 适用于大任务、低频任务或双向流不可用的降级场景
+  // Worker 返回是否接受该任务
+  rpc DispatchTask(DispatchTaskRequest) returns (DispatchTaskResponse);
+
+  // CancelTask 取消任务（Unary RPC）
+  // Master 通知 Worker 取消正在执行的任务
+  // Worker 收到后应中断任务执行并释放资源
+  // force=true 时 Worker 应立即终止，不等优雅退出
+  rpc CancelTask(CancelTaskRequest) returns (CancelTaskResponse);
+
+  // HealthCheck 健康检查（Unary RPC）
+  // Master 主动探测 Worker 存活状态
+  // 用于心跳超时后的二次确认或运维巡检
+  rpc HealthCheck(HealthCheckRequest) returns (HealthCheckResponse);
+
+  // QueryTasks 查询任务（Unary RPC）
+  // Master 查询 Worker 上运行中的任务列表
+  // 用于故障恢复、任务迁移前的状态确认
+  rpc QueryTasks(QueryTasksRequest) returns (QueryTasksResponse);
+
+  // UpdateCapacity 更新容量（Unary RPC）
+  // Worker 通过 Unary RPC 主动上报容量变化
+  // 作为双向流容量更新的补充，适用于非流式模式
+  rpc UpdateCapacity(UpdateCapacityRequest) returns (UpdateCapacityResponse);
+}
+
+// =====================================================================
+// 集群管理消息（类似 kubectl get nodes / kubectl top nodes）
+// =====================================================================
+
+// ListNodesRequest 列出节点请求（类似 kubectl get nodes）
+message ListNodesRequest {
+  repeated NodeState filter_states = 1; // 按状态过滤（空=返回所有）
+  string region_filter = 2;             // 按区域过滤（空=返回所有）
+  map<string, string> label_selector = 3; // 标签选择器（匹配所有指定标签的节点）
+  bool include_offline = 4;             // 是否包含离线节点
+  int32 page_size = 5;                  // 分页大小（0=不分页）
+  string page_token = 6;                // 分页令牌
+}
+
+// NodeDetail 节点详情
+message NodeDetail {
+  BaseNodeInfo node_info = 1;           // 节点基础信息
+  NodeState state = 2;                  // 当前状态
+  NodeCapacity capacity = 3;            // 容量信息
+  int64 registered_at_ms = 4;           // 注册时间戳（毫秒）
+  int64 last_heartbeat_ms = 5;          // 最后心跳时间戳（毫秒）
+  int32 health_check_fail_count = 6;    // 健康检查失败次数
+  int32 active_task_count = 7;          // 活跃任务数
+  int64 session_id = 8;                 // 当前会话 ID
+  ConnectionState connection_state = 9; // 连接状态
+}
+
+// ListNodesResponse 列出节点响应
+message ListNodesResponse {
+  repeated NodeDetail nodes = 1;        // 节点列表
+  int32 total_count = 2;                // 符合条件的总节点数
+  string next_page_token = 3;           // 下一页令牌
+}
+
+// GetNodeInfoRequest 获取节点详情请求
+message GetNodeInfoRequest {
+  string node_id = 1;                   // 节点 ID
+}
+
+// GetNodeInfoResponse 获取节点详情响应
+message GetNodeInfoResponse {
+  NodeDetail node = 1;                  // 节点详情
+}
+
+// ClusterStatsRequest 集群统计请求（类似 kubectl top nodes）
+message ClusterStatsRequest {
+  bool include_task_stats = 1;          // 是否包含任务统计
+  bool include_resource_stats = 2;      // 是否包含资源统计
+}
+
+// ClusterStatsResponse 集群统计响应
+message ClusterStatsResponse {
+  int32 total_nodes = 1;                // 总节点数
+  int32 healthy_nodes = 2;              // 健康节点数
+  int32 offline_nodes = 3;              // 离线节点数
+  int32 draining_nodes = 4;             // 排空中节点数
+  double avg_cpu_usage = 5;             // 平均 CPU 使用率
+  double avg_memory_usage = 6;          // 平均内存使用率
+  int64 total_available_memory = 7;     // 总可用内存（字节）
+  int32 total_running_tasks = 8;        // 总运行任务数
+  int32 total_pending_tasks = 9;        // 总待调度任务数
+  int32 total_succeeded_tasks_24h = 10; // 24 小时内成功任务数
+  int32 total_failed_tasks_24h = 11;    // 24 小时内失败任务数
+  map<string, int32> nodes_by_region = 12; // 按区域统计节点数
+  map<string, int32> nodes_by_state = 13;  // 按状态统计节点数
+}
+
+// ListTasksRequest 列出任务请求（类似 kubectl get jobs）
+message ListTasksRequest {
+  repeated TaskState filter_states = 1; // 按状态过滤（空=返回所有）
+  string task_type_filter = 2;          // 按类型过滤（空=返回所有）
+  string node_id_filter = 3;            // 按节点过滤（空=返回所有）
+  int32 page_size = 4;                  // 分页大小（0=不分页）
+  string page_token = 5;                // 分页令牌
+}
+
+// ListTasksResponse 列出任务响应
+message ListTasksResponse {
+  repeated TaskInfo tasks = 1;          // 任务列表
+  int32 total_count = 2;                // 符合条件的总任务数
+  string next_page_token = 3;           // 下一页令牌
+}
+
+// DrainNodeRequest 排空节点请求（类似 kubectl drain）
+message DrainNodeRequest {
+  string node_id = 1;                   // 节点 ID
+  bool force = 2;                       // 是否强制排空（忽略未完成任务）
+  int64 timeout_ms = 3;                 // 排空超时（毫秒，0=不限时）
+  string reason = 4;                    // 排空原因
+}
+
+// DrainNodeResponse 排空节点响应
+message DrainNodeResponse {
+  bool accepted = 1;                    // 是否接受排空请求
+  string message = 2;                   // 响应描述
+  int32 pending_tasks = 3;              // 当前待完成任务数
+}
+
+// =====================================================================
+// 管理服务定义
+// =====================================================================
+
+// AdminService 集群管理服务
+// 提供类似 kubectl 的集群管理 API
+// 可由运维工具、CLI、Dashboard 等调用
+service AdminService {
+  // ListNodes 列出节点（类似 kubectl get nodes）
+  // 支持按状态、区域、标签过滤，支持分页
+  rpc ListNodes(ListNodesRequest) returns (ListNodesResponse);
+
+  // GetNodeInfo 获取节点详情
+  // 返回节点的完整信息，包括容量、连接状态、任务数等
+  rpc GetNodeInfo(GetNodeInfoRequest) returns (GetNodeInfoResponse);
+
+  // GetClusterStats 获取集群统计（类似 kubectl top nodes）
+  // 返回集群级别的聚合统计信息
+  rpc GetClusterStats(ClusterStatsRequest) returns (ClusterStatsResponse);
+
+  // ListTasks 列出任务（类似 kubectl get jobs）
+  // 支持按状态、类型、节点过滤，支持分页
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+
+  // DrainNode 排空节点（类似 kubectl drain）
+  // 通知指定节点停止接受新任务，等待已有任务完成后下线
+  rpc DrainNode(DrainNodeRequest) returns (DrainNodeResponse);
+}

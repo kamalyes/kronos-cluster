@@ -195,9 +195,12 @@ stateDiagram-v2
 | ⚖️ **负载均衡** | 4 种节点选择策略：Random / LeastLoaded / LocationAware / RoundRobin |
 | 📊 **资源监控** | 实时采集 CPU、内存、网络、负载等指标 |
 | 🔐 **令牌管理** | 基于 `go-toolbox/sign` 的 JWT 令牌签发与验证 |
+| 🔑 **安全认证** | JoinSecret 多令牌管理（TTL/使用次数限制），类似 K8s Bootstrap Tokens |
+| 🛡️ **控制平面** | 类似 kubeconfig 的配置管理，CLI 通过配置文件安全连接 Master |
+| 🚫 **节点管理** | EvictNode / DrainNode / DisableNode / EnableNode / GetNodeTop / GetNodeLogs |
 | 🎯 **节点过滤** | 支持区域、标签、资源限制等多维度过滤 |
 | 📦 **统计缓冲** | `StatsBuffer[T]` 泛型缓冲区，批量刷写统计数据 |
-| 🖥️ **CLI 客户端** | kubectl 风格的命令行客户端，支持 ListNodes、GetClusterStats、ListTasks、DrainNode |
+| 🖥️ **CLI 客户端** | kubectl 风格的命令行客户端，支持 ListNodes、GetClusterStats、ListTasks、DrainNode、EvictNode、GetNodeTop、GetNodeLogs 等 |
 | 🔄 **自动重连** | 指数退避 + 随机抖动的重连策略，防止惊群效应 |
 | 📈 **集群统计** | 实时收集节点状态、区域分布、资源使用率等统计信息 |
 
@@ -237,6 +240,7 @@ package main
 import (
     "context"
     "fmt"
+    "time"
 
     "github.com/kamalyes/go-distributed/common"
     "github.com/kamalyes/go-distributed/logger"
@@ -255,13 +259,29 @@ func main() {
         return base, nil
     }
 
-    // 创建 Master（使用 gRPC 传输）
+    // 创建 Master（使用 gRPC 传输 + 安全认证）
     m, err := master.NewMaster[*common.BaseNodeInfo](&common.MasterConfig{
         GRPCPort:          9000,
         TransportType:      common.TransportTypeGRPC,
         HeartbeatInterval:  5 * time.Second,
         HeartbeatTimeout:   15 * time.Second,
         MaxFailures:        3,
+        // 安全认证配置（可选，关闭则不需要密钥验证）
+        EnableAuth:    true,
+        Secret:        "your-jwt-signing-secret",
+        TokenExpiration: 24 * time.Hour,
+        TokenIssuer:   "go-distributed",
+        // JoinSecrets: Worker 加入集群的预共享密钥（类似 K8s Bootstrap Tokens）
+        JoinSecrets: []*common.JoinSecretEntry{
+            {
+                TokenID:    "abcdef",
+                Secret:     "0123456789abcdef",
+                ExpireAt:   time.Now().Add(24 * time.Hour),
+                MaxUsages:  10,
+                UsedCount:  0,
+                Description: "default join token",
+            },
+        },
     }, converter, master.NewMemoryTaskStore(log), log)
     if err != nil {
         log.Fatal(err.Error())
@@ -296,12 +316,15 @@ import (
 func main() {
     log := logger.NewDistributedLogger("worker")
 
-    // 创建 Worker（使用 gRPC 传输）
+    // 创建 Worker（使用 gRPC 传输 + JoinSecret 安全认证）
     w, err := worker.NewWorker[*common.BaseNodeInfo](&common.WorkerConfig{
         WorkerID:       "worker-1",
         MasterAddr:     "localhost:9000",
         TransportType:   common.TransportTypeGRPC,
         ResourceMonitor: true,
+        // 安全认证配置（与 Master 的 EnableAuth 对应）
+        EnableAuth:  true,
+        JoinSecret:  "abcdef.0123456789abcdef", // <token-id>.<secret> 格式
     }, func() *common.BaseNodeInfo {
         return &common.BaseNodeInfo{}
     }, log)
@@ -338,12 +361,16 @@ import (
 func main() {
     log := logger.NewDistributedLogger("cli")
 
-    // 创建 CLI 客户端
+    // 方式一：直接指定地址创建客户端
     client, err := cli.NewClient("localhost:9000",
         cli.WithLogger(log),
         cli.WithReconnectPolicy(common.DefaultReconnectPolicy()),
         cli.WithHealthCheckInterval(5*time.Second),
     )
+
+    // 方式二：通过控制平面配置创建客户端（推荐，类似 kubeconfig）
+    // client, err := cli.NewClientFromConfigFile("~/.go-distributed/config.yaml")
+
     if err != nil {
         log.Fatal(err.Error())
     }
@@ -359,6 +386,13 @@ func main() {
     if err := client.WaitReady(context.Background(), 10*time.Second); err != nil {
         log.Fatal(err.Error())
     }
+
+    // 认证（如果 Master 启用了安全认证）
+    token, err := client.Authenticate(context.Background(), "your-secret", "cli-client")
+    if err != nil {
+        log.Fatal(err.Error())
+    }
+    log.InfoKV("Authenticated", "token", token)
 
     // 列出所有节点（类似 kubectl get nodes）
     resp, err := client.ListNodes(context.Background(), &pb.ListNodesRequest{})
@@ -397,6 +431,24 @@ func main() {
     for _, task := range tasks.Tasks {
         log.InfoKV("Task info", "id", task.TaskId, "state", task.State, "type", task.TaskType)
     }
+
+    // 节点管理操作（类似 kubectl）
+    // 排空节点（类似 kubectl drain）
+    _, err = client.DrainNode(context.Background(), &pb.DrainNodeRequest{NodeId: "worker-1"})
+    // 驱逐节点（类似 kubectl delete node）
+    _, err = client.EvictNode(context.Background(), &pb.EvictNodeRequest{NodeId: "worker-2"})
+    // 停用节点（类似 kubectl cordon）
+    _, err = client.DisableNode(context.Background(), &pb.DisableNodeRequest{NodeId: "worker-3", Reason: "maintenance"})
+    // 启用节点（类似 kubectl uncordon）
+    _, err = client.EnableNode(context.Background(), &pb.EnableNodeRequest{NodeId: "worker-3"})
+    // 获取节点资源 Top（类似 kubectl top node）
+    top, err := client.GetNodeTop(context.Background(), &pb.GetNodeTopRequest{NodeId: "worker-1"})
+    log.InfoKV("Node top", "cpu", top.Items[0].CpuUsage, "memory", top.Items[0].MemoryUsage)
+    // 获取节点日志（类似 kubectl logs）
+    logs, err := client.GetNodeLogs(context.Background(), &pb.GetNodeLogsRequest{NodeId: "worker-1", TailLines: 100})
+    for _, entry := range logs.Entries {
+        log.InfoKV("Log", "message", entry.Message)
+    }
 }
 ```
 
@@ -415,6 +467,116 @@ func main() {
 - 任务取消和重试机制
 
 **详细文档：** 查看 [examples/README.md](examples/README.md) 获取完整的使用说明、API文档和执行流程图。
+
+### 安全认证
+
+系统支持可选的安全认证机制，类似 Kubernetes Bootstrap Tokens，通过 `EnableAuth` 开关控制。
+
+**Master 端配置：**
+
+```go
+m, _ := master.NewMaster[*common.BaseNodeInfo](&common.MasterConfig{
+    GRPCPort:     9000,
+    TransportType: common.TransportTypeGRPC,
+    // 启用安全认证
+    EnableAuth:      true,
+    Secret:          "your-jwt-signing-secret",
+    TokenExpiration: 24 * time.Hour,
+    TokenIssuer:     "go-distributed",
+    // 多令牌管理（支持 TTL 和使用次数限制）
+    JoinSecrets: []*common.JoinSecretEntry{
+        {
+            TokenID:     "abcdef",
+            Secret:      "0123456789abcdef",
+            ExpireAt:    time.Now().Add(24 * time.Hour),
+            MaxUsages:   10,
+            Description: "default join token",
+        },
+        {
+            TokenID:     "xyz123",
+            Secret:      "9876543210fedcba",
+            ExpireAt:    time.Now().Add(7 * 24 * time.Hour),
+            MaxUsages:   100,
+            Description: "long-lived token",
+        },
+    },
+}, converter, store, log)
+```
+
+**Worker 端配置：**
+
+```go
+w, _ := worker.NewWorker[*common.BaseNodeInfo](&common.WorkerConfig{
+    WorkerID:     "worker-1",
+    MasterAddr:   "localhost:9000",
+    TransportType: common.TransportTypeGRPC,
+    // 使用 JoinSecret 加入集群（格式: <token-id>.<secret>）
+    EnableAuth: true,
+    JoinSecret: "abcdef.0123456789abcdef",
+}, func() *common.BaseNodeInfo {
+    return &common.BaseNodeInfo{}
+}, log)
+```
+
+**安全特性：**
+- HMAC-SHA256 签名验证
+- AES 对称加密保护密钥传输
+- TOTP 时间窗口防重放
+- 多令牌管理，每个令牌独立 TTL 和使用次数限制
+- `EnableAuth: false` 关闭认证，兼容无安全要求的场景
+
+### 控制平面配置
+
+类似 Kubernetes kubeconfig，CLI 客户端支持通过配置文件连接 Master，避免直接暴露地址和端口。
+
+**配置文件（`~/.go-distributed/config.yaml`）：**
+
+```yaml
+current_context: default
+
+clusters:
+  - name: default
+    server: localhost:9000
+    insecure: true
+
+auth_info:
+  - name: admin
+    secret: your-admin-secret
+    enable_auth: true
+
+contexts:
+  - name: default
+    cluster_name: default
+    auth_info: admin
+```
+
+**使用方式：**
+
+```go
+// 从配置文件创建客户端（推荐）
+client, err := cli.NewClientFromConfigFile("~/.go-distributed/config.yaml")
+
+// 或直接从控制平面配置创建
+cpConfig := &common.ControlPlaneConfig{
+    ServerAddr: "localhost:9000",
+    Secret:     "your-admin-secret",
+    EnableAuth: true,
+}
+client, err := cli.NewClientFromControlPlane(cpConfig)
+```
+
+### 节点管理操作
+
+CLI 客户端提供类似 kubectl 的节点管理操作：
+
+| 操作 | CLI 方法 | 类似 kubectl | 说明 |
+|:-----|:---------|:-------------|:-----|
+| 排空节点 | `DrainNode` | `kubectl drain` | 标记节点为排空状态，不再接受新任务，等待已有任务完成 |
+| 驱逐节点 | `EvictNode` | `kubectl delete node` | 从集群中移除节点 |
+| 停用节点 | `DisableNode` | `kubectl cordon` | 标记节点为不可调度，不再接受新任务 |
+| 启用节点 | `EnableNode` | `kubectl uncordon` | 恢复节点为可调度状态 |
+| 节点 Top | `GetNodeTop` | `kubectl top node` | 获取节点资源使用率（CPU/内存/负载） |
+| 节点日志 | `GetNodeLogs` | `kubectl logs` | 获取节点运行日志 |
 
 ### 使用 Redis 传输
 
@@ -548,8 +710,10 @@ go-distributed/
 │   ├── connection.go    # ConnectionState + ReconnectPolicy 连接生命周期
 │   ├── cluster.go       # ClusterStatsCollector 集群统计收集器
 │   ├── convert.go       # Proto ↔ Common 类型转换
-│   ├── token.go        # TokenManager 令牌管理
-│   └── errors.go       # 统一错误常量
+│   ├── token.go         # TokenManager 令牌管理
+│   ├── auth.go          # AuthManager 安全认证管理器（JoinSecret + AdminToken）
+│   ├── control_plane.go # ControlPlaneConfig 控制平面配置管理
+│   └── errors.go        # 统一错误常量 + ErrorCode 错误码
 ├── transport/           # 🔌 传输层（接口 + 双实现）
 │   ├── transport.go     # MasterTransport / WorkerTransport / TransportFactory 接口
 │   ├── grpc.go          # gRPC 传输实现 + GRPCTransportFactory

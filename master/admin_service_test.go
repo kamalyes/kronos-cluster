@@ -12,11 +12,13 @@ package master
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/kamalyes/go-distributed/common"
 	pb "github.com/kamalyes/go-distributed/proto"
 	"github.com/kamalyes/go-logger"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 func newTestAdminService() (*AdminService, *NodePool[*common.BaseNodeInfo], TaskStore) {
@@ -26,7 +28,8 @@ func newTestAdminService() (*AdminService, *NodePool[*common.BaseNodeInfo], Task
 	pool := NewNodePool(selector, log, config)
 	store := NewMemoryTaskStore(log)
 	adapter := &nodePoolAdapter[*common.BaseNodeInfo]{pool: pool}
-	svc := NewAdminService(adapter, store, log)
+	authManager := common.NewAuthManager(config)
+	svc := NewAdminService(adapter, store, log, authManager)
 	return svc, pool, store
 }
 
@@ -289,4 +292,256 @@ func TestAdminServiceDrainNodeNotFound(t *testing.T) {
 	resp, err := svc.DrainNode(context.Background(), &pb.DrainNodeRequest{NodeId: "nonexistent"})
 	assert.Error(t, err)
 	assert.Nil(t, resp)
+}
+
+func TestAdminServiceEvictNode(t *testing.T) {
+	svc, pool, _ := newTestAdminService()
+
+	node := newTestBaseNode()
+	pool.Register(node)
+	node.SetState(common.NodeStateRunning)
+
+	resp, err := svc.EvictNode(context.Background(), &pb.EvictNodeRequest{
+		NodeId:          node.ID,
+		Reason:          "maintenance",
+		Force:           true,
+		RescheduleTasks: true,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.True(t, resp.Success)
+	assert.Contains(t, resp.Message, node.ID)
+
+	found, _ := pool.Get(node.ID)
+	assert.Equal(t, common.NodeStateOffline, found.GetState())
+}
+
+func TestAdminServiceEvictNodeNotFound(t *testing.T) {
+	svc, _, _ := newTestAdminService()
+
+	resp, err := svc.EvictNode(context.Background(), &pb.EvictNodeRequest{NodeId: "nonexistent"})
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestAdminServiceDisableNode(t *testing.T) {
+	svc, pool, _ := newTestAdminService()
+
+	node := newTestBaseNode()
+	pool.Register(node)
+	node.SetSchedulable(true)
+
+	resp, err := svc.DisableNode(context.Background(), &pb.DisableNodeRequest{
+		NodeId: node.ID,
+		Reason: "cordon test",
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.True(t, resp.Success)
+	assert.Contains(t, resp.Message, "disabled")
+
+	found, _ := pool.Get(node.ID)
+	assert.False(t, found.IsSchedulable())
+}
+
+func TestAdminServiceDisableNodeAlreadyDisabled(t *testing.T) {
+	svc, pool, _ := newTestAdminService()
+
+	node := newTestBaseNode()
+	pool.Register(node)
+	node.SetSchedulable(false)
+
+	resp, err := svc.DisableNode(context.Background(), &pb.DisableNodeRequest{
+		NodeId: node.ID,
+		Reason: "already cordoned",
+	})
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestAdminServiceDisableNodeNotFound(t *testing.T) {
+	svc, _, _ := newTestAdminService()
+
+	resp, err := svc.DisableNode(context.Background(), &pb.DisableNodeRequest{NodeId: "nonexistent"})
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestAdminServiceEnableNode(t *testing.T) {
+	svc, pool, _ := newTestAdminService()
+
+	node := newTestBaseNode()
+	pool.Register(node)
+	node.SetSchedulable(false)
+
+	resp, err := svc.EnableNode(context.Background(), &pb.EnableNodeRequest{
+		NodeId: node.ID,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.True(t, resp.Success)
+	assert.Contains(t, resp.Message, "enabled")
+
+	found, _ := pool.Get(node.ID)
+	assert.True(t, found.IsSchedulable())
+}
+
+func TestAdminServiceEnableNodeAlreadyEnabled(t *testing.T) {
+	svc, pool, _ := newTestAdminService()
+
+	node := newTestBaseNode()
+	pool.Register(node)
+	node.SetSchedulable(true)
+
+	resp, err := svc.EnableNode(context.Background(), &pb.EnableNodeRequest{
+		NodeId: node.ID,
+	})
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestAdminServiceEnableNodeNotFound(t *testing.T) {
+	svc, _, _ := newTestAdminService()
+
+	resp, err := svc.EnableNode(context.Background(), &pb.EnableNodeRequest{NodeId: "nonexistent"})
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestAdminServiceGetNodeTop(t *testing.T) {
+	svc, pool, _ := newTestAdminService()
+
+	node := newTestBaseNode()
+	pool.Register(node)
+	node.SetResourceUsage(&common.ResourceUsage{
+		CPUPercent:    45.5,
+		MemoryPercent: 60.2,
+		MemoryTotal:   16384,
+		MemoryUsed:    9830,
+		ActiveTasks:   5,
+		LoadAvg1m:     1.2,
+		LoadAvg5m:     0.8,
+		LoadAvg15m:    0.5,
+	})
+
+	resp, err := svc.GetNodeTop(context.Background(), &pb.GetNodeTopRequest{})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.Len(t, resp.Nodes, 1)
+	assert.Equal(t, node.ID, resp.Nodes[0].NodeId)
+	assert.Greater(t, resp.Nodes[0].CpuUsage, 0.0)
+	assert.Greater(t, resp.Nodes[0].MemoryUsage, 0.0)
+	assert.NotZero(t, resp.Timestamp)
+}
+
+func TestAdminServiceGetNodeTopByNodeId(t *testing.T) {
+	svc, pool, _ := newTestAdminService()
+
+	node1 := newTestBaseNode()
+	pool.Register(node1)
+
+	node2 := newTestBaseNode()
+	pool.Register(node2)
+
+	resp, err := svc.GetNodeTop(context.Background(), &pb.GetNodeTopRequest{
+		NodeId: node1.ID,
+	})
+	assert.NoError(t, err)
+	assert.Len(t, resp.Nodes, 1)
+	assert.Equal(t, node1.ID, resp.Nodes[0].NodeId)
+}
+
+func TestAdminServiceGetNodeTopNodeNotFound(t *testing.T) {
+	svc, _, _ := newTestAdminService()
+
+	resp, err := svc.GetNodeTop(context.Background(), &pb.GetNodeTopRequest{
+		NodeId: "nonexistent",
+	})
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestAdminServiceGetNodeLogs(t *testing.T) {
+	svc, pool, _ := newTestAdminService()
+
+	node := newTestBaseNode()
+	pool.Register(node)
+	node.SetState(common.NodeStateRunning)
+
+	resp, err := svc.GetNodeLogs(context.Background(), &pb.GetNodeLogsRequest{
+		NodeId: node.ID,
+	})
+	assert.NoError(t, err)
+	assert.NotNil(t, resp)
+	assert.NotEmpty(t, resp.Logs)
+	assert.Equal(t, node.ID, resp.NodeId)
+	assert.False(t, resp.HasMore)
+}
+
+func TestAdminServiceGetNodeLogsNotFound(t *testing.T) {
+	svc, _, _ := newTestAdminService()
+
+	resp, err := svc.GetNodeLogs(context.Background(), &pb.GetNodeLogsRequest{
+		NodeId: "nonexistent",
+	})
+	assert.Error(t, err)
+	assert.Nil(t, resp)
+}
+
+func TestAdminServiceAuthenticateDisabled(t *testing.T) {
+	svc, _, _ := newTestAdminService()
+
+	resp, err := svc.Authenticate(context.Background(), &pb.AuthRequest{
+		Secret:   "any",
+		ClientId: "client1",
+	})
+	assert.NoError(t, err)
+	assert.False(t, resp.Success)
+}
+
+func TestAdminServiceAuthenticateWithAuth(t *testing.T) {
+	log := logger.NewEmptyLogger()
+	selector := NewSelector[*common.BaseNodeInfo](common.SelectStrategyLeastLoaded, nil)
+	config := &common.MasterConfig{
+		EnableAuth:      true,
+		Secret:          "admin-secret",
+		TokenExpiration: 1 * time.Hour,
+		TokenIssuer:     "test",
+	}
+	pool := NewNodePool(selector, log, config)
+	store := NewMemoryTaskStore(log)
+	adapter := &nodePoolAdapter[*common.BaseNodeInfo]{pool: pool}
+	authManager := common.NewAuthManager(config)
+	svc := NewAdminService(adapter, store, log, authManager)
+
+	resp, err := svc.Authenticate(context.Background(), &pb.AuthRequest{
+		Secret:   "admin-secret",
+		ClientId: "client1",
+	})
+	assert.NoError(t, err)
+	assert.True(t, resp.Success)
+	assert.NotEmpty(t, resp.Token)
+}
+
+func TestAdminServiceAuthenticateWrongSecret(t *testing.T) {
+	log := logger.NewEmptyLogger()
+	selector := NewSelector[*common.BaseNodeInfo](common.SelectStrategyLeastLoaded, nil)
+	config := &common.MasterConfig{
+		EnableAuth:      true,
+		Secret:          "admin-secret",
+		TokenExpiration: 1 * time.Hour,
+		TokenIssuer:     "test",
+	}
+	pool := NewNodePool(selector, log, config)
+	store := NewMemoryTaskStore(log)
+	adapter := &nodePoolAdapter[*common.BaseNodeInfo]{pool: pool}
+	authManager := common.NewAuthManager(config)
+	svc := NewAdminService(adapter, store, log, authManager)
+
+	resp, err := svc.Authenticate(context.Background(), &pb.AuthRequest{
+		Secret:   "wrong-secret",
+		ClientId: "client1",
+	})
+	assert.NoError(t, err)
+	assert.False(t, resp.Success)
 }

@@ -4,7 +4,7 @@ go 1.25.0
 
 require (
 	github.com/kamalyes/go-distributed v0.0.0
-	github.com/kamalyes/go-toolbox v0.11.87-0.20260324042305-16eae4e7fd59
+	github.com/kamalyes/go-toolbox v0.11.87
 )
 
 require (

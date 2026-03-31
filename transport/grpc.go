@@ -12,6 +12,11 @@ package transport
 import (
 	"context"
 	"fmt"
+	"io"
+	"net"
+	"sync"
+	"time"
+
 	"github.com/kamalyes/go-distributed/common"
 	pb "github.com/kamalyes/go-distributed/proto"
 	"github.com/kamalyes/go-logger"
@@ -21,10 +26,6 @@ import (
 	"github.com/kamalyes/go-toolbox/pkg/syncx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"io"
-	"net"
-	"sync"
-	"time"
 )
 
 // =====================================================================
@@ -59,13 +60,14 @@ type workerStreamConn struct {
 // grpcMasterService gRPC Master 服务实现
 type grpcMasterService struct {
 	pb.UnimplementedMasterServiceServer
-	registerHandler      func(nodeInfo common.NodeInfo, extension []byte) (*RegistrationResult, error)
-	heartbeatHandler     func(nodeID string, state common.NodeState, extension []byte) (*HeartbeatResult, error)
-	unregisterHandler    func(nodeID string, reason string) error
-	taskStatusHandler    func(update *common.TaskStatusUpdate) error
-	connectStreamHandler func(nodeID string, stream grpc.BidiStreamingServer[pb.WorkerReport, pb.MasterCommand]) error
-	logger               logger.ILogger
-	masterTransport      *GRPCMasterTransport
+	registerHandler           func(nodeInfo common.NodeInfo, extension []byte) (*RegistrationResult, error)
+	registerWithSecretHandler func(nodeInfo common.NodeInfo, joinSecret string, extension []byte) (*RegistrationResult, error)
+	heartbeatHandler          func(nodeID string, state common.NodeState, extension []byte) (*HeartbeatResult, error)
+	unregisterHandler         func(nodeID string, reason string) error
+	taskStatusHandler         func(update *common.TaskStatusUpdate) error
+	connectStreamHandler      func(nodeID string, stream grpc.BidiStreamingServer[pb.WorkerReport, pb.MasterCommand]) error
+	logger                    logger.ILogger
+	masterTransport           *GRPCMasterTransport
 }
 
 // NewGRPCMasterTransport 创建 gRPC Master 传输层
@@ -162,6 +164,13 @@ func (t *GRPCMasterTransport) OnRegister(handler func(nodeInfo common.NodeInfo, 
 	}
 }
 
+// OnRegisterWithSecret 设置带密钥的节点注册回调
+func (t *GRPCMasterTransport) OnRegisterWithSecret(handler func(nodeInfo common.NodeInfo, joinSecret string, extension []byte) (*RegistrationResult, error)) {
+	if t.service != nil {
+		t.service.registerWithSecretHandler = handler
+	}
+}
+
 // OnHeartbeat 设置节点心跳回调
 func (t *GRPCMasterTransport) OnHeartbeat(handler func(nodeID string, state common.NodeState, extension []byte) (*HeartbeatResult, error)) {
 	if t.service != nil {
@@ -233,6 +242,21 @@ func (t *GRPCMasterTransport) CancelTask(ctx context.Context, nodeID string, tas
 
 // RegisterNode 处理 Worker 节点注册请求
 func (s *grpcMasterService) RegisterNode(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
+	if s.registerWithSecretHandler != nil && req.JoinSecret != "" {
+		nodeInfo := common.ProtoBaseNodeInfoToCommon(req.NodeInfo)
+		result, err := s.registerWithSecretHandler(nodeInfo, req.JoinSecret, req.Extension)
+		if err != nil {
+			return &pb.RegisterResponse{Success: false, Message: err.Error()}, nil
+		}
+
+		return &pb.RegisterResponse{
+			Success:           result.Success,
+			Message:           result.Message,
+			Token:             result.Token,
+			HeartbeatInterval: result.HeartbeatInterval,
+		}, nil
+	}
+
 	if s.registerHandler == nil {
 		return &pb.RegisterResponse{Success: false, Message: msgHandlerNotRegistered}, nil
 	}
@@ -533,6 +557,34 @@ func (t *GRPCWorkerTransport) Register(ctx context.Context, nodeInfo common.Node
 	req := &pb.RegisterRequest{
 		NodeInfo:  common.CommonNodeInfoToProto(nodeInfo),
 		Extension: extension,
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	resp, err := t.masterClient.RegisterNode(ctx, req)
+	if err != nil {
+		return nil, errorx.WrapError(common.ErrRegisterFailed, err)
+	}
+
+	return &RegistrationResult{
+		Success:           resp.Success,
+		Message:           resp.Message,
+		Token:             resp.Token,
+		HeartbeatInterval: resp.HeartbeatInterval,
+	}, nil
+}
+
+// RegisterWithSecret 向 Master 注册当前 Worker 节点（携带加入密钥）
+func (t *GRPCWorkerTransport) RegisterWithSecret(ctx context.Context, nodeInfo common.NodeInfo, joinSecret string, extension []byte) (*RegistrationResult, error) {
+	if t.masterClient == nil {
+		return nil, errorx.WrapError(common.ErrNotConnectedToMaster)
+	}
+
+	req := &pb.RegisterRequest{
+		NodeInfo:   common.CommonNodeInfoToProto(nodeInfo),
+		JoinSecret: joinSecret,
+		Extension:  extension,
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)

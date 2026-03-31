@@ -13,11 +13,12 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/kamalyes/go-distributed/common"
 	"github.com/kamalyes/go-distributed/logger"
 	"github.com/kamalyes/go-distributed/worker"
 	"github.com/kamalyes/go-toolbox/pkg/random"
-	"time"
 )
 
 func main() {
@@ -29,6 +30,7 @@ func main() {
 		TransportType:      common.TransportTypeGRPC,
 		ResourceMonitor:    true,
 		MaxConcurrentTasks: 10,
+		JoinSecret:         "REPLACE_WITH_REAL_TOKEN",
 	}, func() *common.BaseNodeInfo {
 		return &common.BaseNodeInfo{
 			Labels: map[string]string{

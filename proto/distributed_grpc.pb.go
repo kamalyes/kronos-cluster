@@ -669,6 +669,12 @@ const (
 	AdminService_GetClusterStats_FullMethodName = "/distributed.AdminService/GetClusterStats"
 	AdminService_ListTasks_FullMethodName       = "/distributed.AdminService/ListTasks"
 	AdminService_DrainNode_FullMethodName       = "/distributed.AdminService/DrainNode"
+	AdminService_EvictNode_FullMethodName       = "/distributed.AdminService/EvictNode"
+	AdminService_DisableNode_FullMethodName     = "/distributed.AdminService/DisableNode"
+	AdminService_EnableNode_FullMethodName      = "/distributed.AdminService/EnableNode"
+	AdminService_GetNodeTop_FullMethodName      = "/distributed.AdminService/GetNodeTop"
+	AdminService_GetNodeLogs_FullMethodName     = "/distributed.AdminService/GetNodeLogs"
+	AdminService_Authenticate_FullMethodName    = "/distributed.AdminService/Authenticate"
 )
 
 // AdminServiceClient is the client API for AdminService service.
@@ -678,6 +684,7 @@ const (
 // AdminService 集群管理服务
 // 提供类似 kubectl 的集群管理 API
 // 可由运维工具、CLI、Dashboard 等调用
+// 当 Master 启用安全认证时，所有请求需携带有效的认证令牌
 type AdminServiceClient interface {
 	// ListNodes 列出节点（类似 kubectl get nodes）
 	// 支持按状态、区域、标签过滤，支持分页
@@ -694,6 +701,24 @@ type AdminServiceClient interface {
 	// DrainNode 排空节点（类似 kubectl drain）
 	// 通知指定节点停止接受新任务，等待已有任务完成后下线
 	DrainNode(ctx context.Context, in *DrainNodeRequest, opts ...grpc.CallOption) (*DrainNodeResponse, error)
+	// EvictNode 驱逐节点（类似 kubectl delete node）
+	// 立即断开节点连接并将其从集群中移除
+	EvictNode(ctx context.Context, in *EvictNodeRequest, opts ...grpc.CallOption) (*EvictNodeResponse, error)
+	// DisableNode 停用节点（类似 kubectl cordon）
+	// 标记节点为不可调度，不再接受新任务
+	DisableNode(ctx context.Context, in *DisableNodeRequest, opts ...grpc.CallOption) (*DisableNodeResponse, error)
+	// EnableNode 启用节点（类似 kubectl uncordon）
+	// 恢复节点为可调度状态
+	EnableNode(ctx context.Context, in *EnableNodeRequest, opts ...grpc.CallOption) (*EnableNodeResponse, error)
+	// GetNodeTop 获取节点资源 Top（类似 kubectl top node）
+	// 返回节点的实时资源使用情况
+	GetNodeTop(ctx context.Context, in *GetNodeTopRequest, opts ...grpc.CallOption) (*GetNodeTopResponse, error)
+	// GetNodeLogs 获取节点日志（类似 kubectl logs）
+	// 获取指定节点的运行日志
+	GetNodeLogs(ctx context.Context, in *GetNodeLogsRequest, opts ...grpc.CallOption) (*GetNodeLogsResponse, error)
+	// Authenticate CLI 客户端认证
+	// 通过预共享密钥获取访问令牌
+	Authenticate(ctx context.Context, in *AuthRequest, opts ...grpc.CallOption) (*AuthResponse, error)
 }
 
 type adminServiceClient struct {
@@ -754,6 +779,66 @@ func (c *adminServiceClient) DrainNode(ctx context.Context, in *DrainNodeRequest
 	return out, nil
 }
 
+func (c *adminServiceClient) EvictNode(ctx context.Context, in *EvictNodeRequest, opts ...grpc.CallOption) (*EvictNodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EvictNodeResponse)
+	err := c.cc.Invoke(ctx, AdminService_EvictNode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) DisableNode(ctx context.Context, in *DisableNodeRequest, opts ...grpc.CallOption) (*DisableNodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(DisableNodeResponse)
+	err := c.cc.Invoke(ctx, AdminService_DisableNode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) EnableNode(ctx context.Context, in *EnableNodeRequest, opts ...grpc.CallOption) (*EnableNodeResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(EnableNodeResponse)
+	err := c.cc.Invoke(ctx, AdminService_EnableNode_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) GetNodeTop(ctx context.Context, in *GetNodeTopRequest, opts ...grpc.CallOption) (*GetNodeTopResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetNodeTopResponse)
+	err := c.cc.Invoke(ctx, AdminService_GetNodeTop_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) GetNodeLogs(ctx context.Context, in *GetNodeLogsRequest, opts ...grpc.CallOption) (*GetNodeLogsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(GetNodeLogsResponse)
+	err := c.cc.Invoke(ctx, AdminService_GetNodeLogs_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) Authenticate(ctx context.Context, in *AuthRequest, opts ...grpc.CallOption) (*AuthResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AuthResponse)
+	err := c.cc.Invoke(ctx, AdminService_Authenticate_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AdminServiceServer is the server API for AdminService service.
 // All implementations must embed UnimplementedAdminServiceServer
 // for forward compatibility.
@@ -761,6 +846,7 @@ func (c *adminServiceClient) DrainNode(ctx context.Context, in *DrainNodeRequest
 // AdminService 集群管理服务
 // 提供类似 kubectl 的集群管理 API
 // 可由运维工具、CLI、Dashboard 等调用
+// 当 Master 启用安全认证时，所有请求需携带有效的认证令牌
 type AdminServiceServer interface {
 	// ListNodes 列出节点（类似 kubectl get nodes）
 	// 支持按状态、区域、标签过滤，支持分页
@@ -777,6 +863,24 @@ type AdminServiceServer interface {
 	// DrainNode 排空节点（类似 kubectl drain）
 	// 通知指定节点停止接受新任务，等待已有任务完成后下线
 	DrainNode(context.Context, *DrainNodeRequest) (*DrainNodeResponse, error)
+	// EvictNode 驱逐节点（类似 kubectl delete node）
+	// 立即断开节点连接并将其从集群中移除
+	EvictNode(context.Context, *EvictNodeRequest) (*EvictNodeResponse, error)
+	// DisableNode 停用节点（类似 kubectl cordon）
+	// 标记节点为不可调度，不再接受新任务
+	DisableNode(context.Context, *DisableNodeRequest) (*DisableNodeResponse, error)
+	// EnableNode 启用节点（类似 kubectl uncordon）
+	// 恢复节点为可调度状态
+	EnableNode(context.Context, *EnableNodeRequest) (*EnableNodeResponse, error)
+	// GetNodeTop 获取节点资源 Top（类似 kubectl top node）
+	// 返回节点的实时资源使用情况
+	GetNodeTop(context.Context, *GetNodeTopRequest) (*GetNodeTopResponse, error)
+	// GetNodeLogs 获取节点日志（类似 kubectl logs）
+	// 获取指定节点的运行日志
+	GetNodeLogs(context.Context, *GetNodeLogsRequest) (*GetNodeLogsResponse, error)
+	// Authenticate CLI 客户端认证
+	// 通过预共享密钥获取访问令牌
+	Authenticate(context.Context, *AuthRequest) (*AuthResponse, error)
 	mustEmbedUnimplementedAdminServiceServer()
 }
 
@@ -801,6 +905,24 @@ func (UnimplementedAdminServiceServer) ListTasks(context.Context, *ListTasksRequ
 }
 func (UnimplementedAdminServiceServer) DrainNode(context.Context, *DrainNodeRequest) (*DrainNodeResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method DrainNode not implemented")
+}
+func (UnimplementedAdminServiceServer) EvictNode(context.Context, *EvictNodeRequest) (*EvictNodeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method EvictNode not implemented")
+}
+func (UnimplementedAdminServiceServer) DisableNode(context.Context, *DisableNodeRequest) (*DisableNodeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method DisableNode not implemented")
+}
+func (UnimplementedAdminServiceServer) EnableNode(context.Context, *EnableNodeRequest) (*EnableNodeResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method EnableNode not implemented")
+}
+func (UnimplementedAdminServiceServer) GetNodeTop(context.Context, *GetNodeTopRequest) (*GetNodeTopResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetNodeTop not implemented")
+}
+func (UnimplementedAdminServiceServer) GetNodeLogs(context.Context, *GetNodeLogsRequest) (*GetNodeLogsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetNodeLogs not implemented")
+}
+func (UnimplementedAdminServiceServer) Authenticate(context.Context, *AuthRequest) (*AuthResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method Authenticate not implemented")
 }
 func (UnimplementedAdminServiceServer) mustEmbedUnimplementedAdminServiceServer() {}
 func (UnimplementedAdminServiceServer) testEmbeddedByValue()                      {}
@@ -913,6 +1035,114 @@ func _AdminService_DrainNode_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminService_EvictNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EvictNodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).EvictNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_EvictNode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).EvictNode(ctx, req.(*EvictNodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_DisableNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(DisableNodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).DisableNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_DisableNode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).DisableNode(ctx, req.(*DisableNodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_EnableNode_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(EnableNodeRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).EnableNode(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_EnableNode_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).EnableNode(ctx, req.(*EnableNodeRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_GetNodeTop_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNodeTopRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).GetNodeTop(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_GetNodeTop_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).GetNodeTop(ctx, req.(*GetNodeTopRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_GetNodeLogs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetNodeLogsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).GetNodeLogs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_GetNodeLogs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).GetNodeLogs(ctx, req.(*GetNodeLogsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_Authenticate_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AuthRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).Authenticate(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_Authenticate_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).Authenticate(ctx, req.(*AuthRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AdminService_ServiceDesc is the grpc.ServiceDesc for AdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -939,6 +1169,30 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "DrainNode",
 			Handler:    _AdminService_DrainNode_Handler,
+		},
+		{
+			MethodName: "EvictNode",
+			Handler:    _AdminService_EvictNode_Handler,
+		},
+		{
+			MethodName: "DisableNode",
+			Handler:    _AdminService_DisableNode_Handler,
+		},
+		{
+			MethodName: "EnableNode",
+			Handler:    _AdminService_EnableNode_Handler,
+		},
+		{
+			MethodName: "GetNodeTop",
+			Handler:    _AdminService_GetNodeTop_Handler,
+		},
+		{
+			MethodName: "GetNodeLogs",
+			Handler:    _AdminService_GetNodeLogs_Handler,
+		},
+		{
+			MethodName: "Authenticate",
+			Handler:    _AdminService_Authenticate_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

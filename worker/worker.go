@@ -1,4 +1,4 @@
-﻿/*
+/*
  * @Author: kamalyes 501893067@qq.com
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
@@ -14,6 +14,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime"
+	"time"
+
 	"github.com/kamalyes/go-distributed/common"
 	"github.com/kamalyes/go-distributed/transport"
 	"github.com/kamalyes/go-logger"
@@ -24,8 +27,6 @@ import (
 	"github.com/kamalyes/go-toolbox/pkg/retry"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"
 	"github.com/shirou/gopsutil/v3/mem"
-	"runtime"
-	"time"
 )
 
 var errReconnectInProgress = errors.New("reconnect already in progress")
@@ -213,7 +214,15 @@ func (w *Worker[T]) register(ctx context.Context) error {
 				"worker_id", w.info.GetID())
 		}).
 		Do(func() error {
-			result, err := w.transport.Register(ctx, w.info, nil)
+			var result *transport.RegistrationResult
+			var err error
+
+			if w.config.JoinSecret != "" {
+				result, err = w.transport.RegisterWithSecret(ctx, w.info, w.config.JoinSecret, nil)
+			} else {
+				result, err = w.transport.Register(ctx, w.info, nil)
+			}
+
 			if err != nil {
 				return err
 			}

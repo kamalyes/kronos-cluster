@@ -56,6 +56,14 @@ type NodeInfo interface {
 	GetRegisteredAt() time.Time
 	// SetRegisteredAt 设置注册时间
 	SetRegisteredAt(time.Time)
+	// IsSchedulable 判断节点是否可调度（未被 cordon）
+	IsSchedulable() bool
+	// SetSchedulable 设置节点是否可调度
+	SetSchedulable(bool)
+	// GetDisableReason 获取停用原因
+	GetDisableReason() string
+	// SetDisableReason 设置停用原因
+	SetDisableReason(string)
 }
 
 // BaseNodeInfo 节点基础信息 - 提供 NodeInfo 接口的默认实现
@@ -75,6 +83,8 @@ type BaseNodeInfo struct {
 	ResourceUsage   *ResourceUsage    `json:"resource_usage"`    // 资源使用情况
 	CurrentLoad     float64           `json:"current_load"`      // 当前负载（0-1）
 	HealthCheckFail int               `json:"health_check_fail"` // 健康检查失败次数
+	Schedulable     bool              `json:"schedulable"`       // 是否可调度（未被 cordon）
+	DisableReason   string            `json:"disable_reason"`    // 停用原因
 }
 
 func (n *BaseNodeInfo) GetID() string                     { return n.ID }
@@ -99,3 +109,7 @@ func (n *BaseNodeInfo) GetHealthCheckFail() int           { return n.HealthCheck
 func (n *BaseNodeInfo) SetHealthCheckFail(f int)          { n.HealthCheckFail = f }
 func (n *BaseNodeInfo) GetRegisteredAt() time.Time        { return n.RegisteredAt }
 func (n *BaseNodeInfo) SetRegisteredAt(t time.Time)       { n.RegisteredAt = t }
+func (n *BaseNodeInfo) IsSchedulable() bool               { return n.Schedulable }
+func (n *BaseNodeInfo) SetSchedulable(s bool)             { n.Schedulable = s }
+func (n *BaseNodeInfo) GetDisableReason() string          { return n.DisableReason }
+func (n *BaseNodeInfo) SetDisableReason(r string)         { n.DisableReason = r }

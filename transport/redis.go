@@ -13,12 +13,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
+
 	"github.com/kamalyes/go-distributed/common"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/errorx"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"
 	"github.com/redis/go-redis/v9"
-	"time"
 )
 
 // Redis 键和通道常量
@@ -41,15 +42,16 @@ const (
 
 // RedisMasterTransport Redis Master 端传输层实现 - 通过 Pub/Sub 接收节点事件和任务状态回报
 type RedisMasterTransport struct {
-	config            *common.MasterConfig                                                                    // Master 配置
-	redisClient       redis.UniversalClient                                                                   // Redis 客户端
-	logger            logger.ILogger                                                                          // 日志
-	running           *syncx.Bool                                                                             // 运行状态
-	cancelFunc        context.CancelFunc                                                                      // 取消函数
-	registerHandler   func(nodeInfo common.NodeInfo, extension []byte) (*RegistrationResult, error)           // 注册回调
-	heartbeatHandler  func(nodeID string, state common.NodeState, extension []byte) (*HeartbeatResult, error) // 心跳回调
-	unregisterHandler func(nodeID string, reason string) error                                                // 注销回调
-	taskStatusHandler func(update *common.TaskStatusUpdate) error                                             // 任务状态更新回调
+	config                    *common.MasterConfig                                                                             // Master 配置
+	redisClient               redis.UniversalClient                                                                            // Redis 客户端
+	logger                    logger.ILogger                                                                                   // 日志
+	running                   *syncx.Bool                                                                                      // 运行状态
+	cancelFunc                context.CancelFunc                                                                               // 取消函数
+	registerHandler           func(nodeInfo common.NodeInfo, extension []byte) (*RegistrationResult, error)                    // 注册回调
+	registerWithSecretHandler func(nodeInfo common.NodeInfo, joinSecret string, extension []byte) (*RegistrationResult, error) // 带密钥的注册回调
+	heartbeatHandler          func(nodeID string, state common.NodeState, extension []byte) (*HeartbeatResult, error)          // 心跳回调
+	unregisterHandler         func(nodeID string, reason string) error                                                         // 注销回调
+	taskStatusHandler         func(update *common.TaskStatusUpdate) error                                                      // 任务状态更新回调
 }
 
 // NewRedisMasterTransport 创建 Redis Master 传输层
@@ -111,6 +113,11 @@ func (t *RedisMasterTransport) Stop() error {
 // 当收到 Worker 注册消息时触发
 func (t *RedisMasterTransport) OnRegister(handler func(nodeInfo common.NodeInfo, extension []byte) (*RegistrationResult, error)) {
 	t.registerHandler = handler
+}
+
+// OnRegisterWithSecret 设置带密钥的节点注册回调
+func (t *RedisMasterTransport) OnRegisterWithSecret(handler func(nodeInfo common.NodeInfo, joinSecret string, extension []byte) (*RegistrationResult, error)) {
+	t.registerWithSecretHandler = handler
 }
 
 // OnHeartbeat 设置节点心跳回调
@@ -389,6 +396,38 @@ func (t *RedisWorkerTransport) Register(ctx context.Context, nodeInfo common.Nod
 	}{
 		NodeInfo:  nodeInfo,
 		Extension: extension,
+	}
+
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return nil, fmt.Errorf(common.ErrFailedMarshal, "register")
+	}
+
+	if err := t.redisClient.Publish(ctx, redisChannelRegister, string(payload)).Err(); err != nil {
+		return nil, fmt.Errorf(common.ErrFailedPublish, "register")
+	}
+
+	nodeData, _ := json.Marshal(nodeInfo)
+	t.redisClient.HSet(ctx, redisKeyNodes, nodeInfo.GetID(), string(nodeData))
+	t.redisClient.Set(ctx, redisKeyHeartbeat+nodeInfo.GetID(), "1", 30*time.Second)
+
+	return &RegistrationResult{
+		Success:           true,
+		Message:           "registered via redis",
+		HeartbeatInterval: 5,
+	}, nil
+}
+
+// RegisterWithSecret 通过 Redis Pub/Sub 注册当前 Worker 节点（携带加入密钥）
+func (t *RedisWorkerTransport) RegisterWithSecret(ctx context.Context, nodeInfo common.NodeInfo, joinSecret string, extension []byte) (*RegistrationResult, error) {
+	data := struct {
+		NodeInfo   common.NodeInfo `json:"node_info"`
+		JoinSecret string          `json:"join_secret"`
+		Extension  []byte          `json:"extension"`
+	}{
+		NodeInfo:   nodeInfo,
+		JoinSecret: joinSecret,
+		Extension:  extension,
 	}
 
 	payload, err := json.Marshal(data)

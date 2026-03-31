@@ -29,12 +29,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/kamalyes/go-distributed/common"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"
 	"github.com/redis/go-redis/v9"
-	"sync"
-	"time"
 )
 
 const (
@@ -280,7 +281,7 @@ func NewRedisTaskStore(client redis.UniversalClient, log logger.ILogger) *RedisT
 func (s *RedisTaskStore) SaveTask(ctx context.Context, task *common.TaskInfo) error {
 	data, err := json.Marshal(task)
 	if err != nil {
-		return fmt.Errorf("failed to marshal task %s: %w", task.ID, err)
+		return fmt.Errorf(common.ErrFailedMarshalTask, task.ID, err)
 	}
 
 	taskKey := redisTaskKeyPrefix + task.ID
@@ -298,7 +299,7 @@ func (s *RedisTaskStore) SaveTask(ctx context.Context, task *common.TaskInfo) er
 
 	_, err = pipe.Exec(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to save task %s: %w", task.ID, err)
+		return fmt.Errorf(common.ErrFailedSaveTask, task.ID, err)
 	}
 
 	return nil
@@ -312,12 +313,12 @@ func (s *RedisTaskStore) GetTask(ctx context.Context, taskID string) (*common.Ta
 		return nil, fmt.Errorf(common.ErrTaskNotFound, taskID)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get task %s: %w", taskID, err)
+		return nil, fmt.Errorf(common.ErrFailedGetTask, taskID, err)
 	}
 
 	var task common.TaskInfo
 	if err := json.Unmarshal([]byte(result), &task); err != nil {
-		return nil, fmt.Errorf("failed to unmarshal task %s: %w", taskID, err)
+		return nil, fmt.Errorf(common.ErrFailedUnmarshalTask, taskID, err)
 	}
 
 	return &task, nil
@@ -362,7 +363,7 @@ func (s *RedisTaskStore) UpdateTaskState(ctx context.Context, taskID string, sta
 
 	data, err := json.Marshal(task)
 	if err != nil {
-		return fmt.Errorf("failed to marshal task %s: %w", taskID, err)
+		return fmt.Errorf(common.ErrFailedMarshalTask, taskID, err)
 	}
 
 	pipe := s.client.Pipeline()
@@ -384,7 +385,7 @@ func (s *RedisTaskStore) EnqueuePending(ctx context.Context, task *common.TaskIn
 	}
 
 	if err := s.client.LPush(ctx, redisPendingQueueKey, task.ID).Err(); err != nil {
-		return fmt.Errorf("failed to enqueue task %s: %w", task.ID, err)
+		return fmt.Errorf(common.ErrFailedEnqueueTask, task.ID, err)
 	}
 
 	return nil
@@ -397,7 +398,7 @@ func (s *RedisTaskStore) DequeuePending(ctx context.Context) (*common.TaskInfo, 
 		return nil, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to dequeue pending task: %w", err)
+		return nil, fmt.Errorf(common.ErrFailedDequeueTask, err)
 	}
 
 	task, err := s.GetTask(ctx, taskID)
@@ -427,7 +428,7 @@ func (s *RedisTaskStore) ListTasks(ctx context.Context) ([]*common.TaskInfo, err
 	for {
 		keys, nextCursor, err := s.client.Scan(ctx, cursor, redisTaskKeyPrefix+"*", 100).Result()
 		if err != nil {
-			return nil, fmt.Errorf("failed to scan tasks: %w", err)
+			return nil, fmt.Errorf(common.ErrFailedScanTasks, err)
 		}
 
 		for _, key := range keys {

@@ -13,15 +13,16 @@ package cli
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/kamalyes/go-distributed/common"
 	pb "github.com/kamalyes/go-distributed/proto"
-	"time"
 )
 
 // Start 启动客户端生命周期管理（健康检查 + 自动重连）
 func (c *Client) Start(ctx context.Context) error {
 	if !c.running.CAS(false, true) {
-		return fmt.Errorf("client already running")
+		return fmt.Errorf(common.ErrClientAlreadyRunning)
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
@@ -38,7 +39,7 @@ func (c *Client) Start(ctx context.Context) error {
 // Stop 停止客户端
 func (c *Client) Stop() error {
 	if !c.running.CAS(true, false) {
-		return fmt.Errorf("client not running")
+		return fmt.Errorf(common.ErrClientNotRunning)
 	}
 
 	if c.cancelFunc != nil {
@@ -76,7 +77,7 @@ func (c *Client) WaitReady(ctx context.Context, timeout time.Duration) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("client not ready: %w", ctx.Err())
+			return fmt.Errorf(common.ErrClientNotReady, ctx.Err())
 		case <-ticker.C:
 			if c.IsReady() {
 				return nil
@@ -88,13 +89,13 @@ func (c *Client) WaitReady(ctx context.Context, timeout time.Duration) error {
 // Ping 检查与 Master 的连接是否正常
 func (c *Client) Ping(ctx context.Context) error {
 	if c.client == nil {
-		return fmt.Errorf("client not connected")
+		return fmt.Errorf(common.ErrClientNotConnected)
 	}
 
 	_, err := c.client.GetClusterStats(ctx, &pb.ClusterStatsRequest{})
 	if err != nil {
 		c.setState(common.ConnectionStateReconnecting)
-		return fmt.Errorf("ping failed: %w", err)
+		return fmt.Errorf(common.ErrPingFailed, err)
 	}
 
 	return nil

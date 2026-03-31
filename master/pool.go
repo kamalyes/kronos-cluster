@@ -13,12 +13,13 @@ package master
 import (
 	"context"
 	"fmt"
-	"github.com/kamalyes/go-distributed/common"
-	"github.com/kamalyes/go-logger"
-	"github.com/kamalyes/go-toolbox/pkg/mathx"
 	"sort"
 	"sync"
 	"time"
+
+	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/go-logger"
+	"github.com/kamalyes/go-toolbox/pkg/mathx"
 )
 
 // NodePool 泛型节点池 - 使用 sync.Map 实现线程安全的节点管理
@@ -58,6 +59,8 @@ func (p *NodePool[T]) Register(node T) error {
 	node.SetRegisteredAt(time.Now())
 	node.SetLastHeartbeat(time.Now())
 	node.SetState(common.NodeStateIdle)
+	node.SetSchedulable(true)
+	node.SetDisableReason("")
 	p.nodes.Store(node.GetID(), node)
 
 	return nil
@@ -125,16 +128,17 @@ func (p *NodePool[T]) GetIdle() []T {
 	return nodes
 }
 
-// Select 使用选择器选取指定数量的节点
+// Select 使用选择器选取指定数量的节点（仅选取可调度节点）
 func (p *NodePool[T]) Select(count int) []T {
 	healthy := p.GetHealthy()
+	schedulable := filterSchedulable(healthy)
 	if p.selector != nil {
-		return p.selector.Select(healthy, count)
+		return p.selector.Select(schedulable, count)
 	}
-	if count >= len(healthy) {
-		return healthy
+	if count >= len(schedulable) {
+		return schedulable
 	}
-	return healthy[:count]
+	return schedulable[:count]
 }
 
 // SelectWithFilter 使用过滤器选取节点
@@ -266,7 +270,84 @@ func (p *NodePool[T]) Clear() {
 	p.logger.Info("Node pool cleared")
 }
 
+// Evict 驱逐节点 - 立即从集群中移除节点
+func (p *NodePool[T]) Evict(nodeID string, reason string) error {
+	val, ok := p.nodes.Load(nodeID)
+	if !ok {
+		return fmt.Errorf(common.ErrNodeNotFound, nodeID)
+	}
+	node := val.(T)
+	node.SetState(common.NodeStateOffline)
+	p.nodes.Delete(nodeID)
+
+	p.logger.InfoKV("Node evicted",
+		"node_id", nodeID,
+		"hostname", node.GetHostname(),
+		"reason", reason)
+	return nil
+}
+
+// Disable 停用节点 - 标记为不可调度（类似 kubectl cordon）
+func (p *NodePool[T]) Disable(nodeID string, reason string) error {
+	val, ok := p.nodes.Load(nodeID)
+	if !ok {
+		return fmt.Errorf(common.ErrNodeNotFound, nodeID)
+	}
+	node := val.(T)
+	if !node.IsSchedulable() {
+		return fmt.Errorf(common.ErrNodeAlreadyDisabled, nodeID)
+	}
+	node.SetSchedulable(false)
+	node.SetDisableReason(reason)
+	p.nodes.Store(nodeID, node)
+
+	p.logger.InfoKV("Node disabled (cordon)",
+		"node_id", nodeID,
+		"reason", reason)
+	return nil
+}
+
+// Enable 启用节点 - 恢复为可调度状态（类似 kubectl uncordon）
+func (p *NodePool[T]) Enable(nodeID string) error {
+	val, ok := p.nodes.Load(nodeID)
+	if !ok {
+		return fmt.Errorf(common.ErrNodeNotFound, nodeID)
+	}
+	node := val.(T)
+	if node.IsSchedulable() {
+		return fmt.Errorf(common.ErrNodeAlreadyEnabled, nodeID)
+	}
+	node.SetSchedulable(true)
+	node.SetDisableReason("")
+	p.nodes.Store(nodeID, node)
+
+	p.logger.InfoKV("Node enabled (uncordon)",
+		"node_id", nodeID)
+	return nil
+}
+
+// IsSchedulable 检查节点是否可调度
+func (p *NodePool[T]) IsSchedulable(nodeID string) (bool, error) {
+	val, ok := p.nodes.Load(nodeID)
+	if !ok {
+		return false, fmt.Errorf(common.ErrNodeNotFound, nodeID)
+	}
+	node := val.(T)
+	return node.IsSchedulable(), nil
+}
+
 // StartHealthCheck 启动健康检查
 func (p *NodePool[T]) StartHealthCheck(ctx context.Context, health *HealthChecker[T]) {
 	health.Start(ctx)
+}
+
+// filterSchedulable 过滤出可调度的节点
+func filterSchedulable[T common.NodeInfo](nodes []T) []T {
+	result := make([]T, 0, len(nodes))
+	for _, node := range nodes {
+		if node.IsSchedulable() {
+			result = append(result, node)
+		}
+	}
+	return result
 }

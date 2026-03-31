@@ -70,7 +70,7 @@ func (s ConnectionState) ValidateTransition(target ConnectionState) error {
 		return nil
 	}
 	if !s.CanTransitionTo(target) {
-		return fmt.Errorf("invalid connection state transition: %s -> %s", s, target)
+		return fmt.Errorf(ErrInvalidStateTransition, s, target)
 	}
 	return nil
 }

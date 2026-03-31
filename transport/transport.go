@@ -11,6 +11,7 @@ package transport
 
 import (
 	"context"
+
 	"github.com/kamalyes/go-distributed/common"
 	"github.com/kamalyes/go-logger"
 )
@@ -35,6 +36,7 @@ type MasterTransport interface {
 	Start(ctx context.Context) error
 	Stop() error
 	OnRegister(handler func(nodeInfo common.NodeInfo, extension []byte) (*RegistrationResult, error))
+	OnRegisterWithSecret(handler func(nodeInfo common.NodeInfo, joinSecret string, extension []byte) (*RegistrationResult, error))
 	OnHeartbeat(handler func(nodeID string, state common.NodeState, extension []byte) (*HeartbeatResult, error))
 	OnUnregister(handler func(nodeID string, reason string) error)
 	OnTaskStatusUpdate(handler func(update *common.TaskStatusUpdate) error)
@@ -48,6 +50,7 @@ type WorkerTransport interface {
 	Connect(ctx context.Context) error
 	Close() error
 	Register(ctx context.Context, nodeInfo common.NodeInfo, extension []byte) (*RegistrationResult, error)
+	RegisterWithSecret(ctx context.Context, nodeInfo common.NodeInfo, joinSecret string, extension []byte) (*RegistrationResult, error)
 	Heartbeat(ctx context.Context, nodeID string, state common.NodeState, extension []byte) (*HeartbeatResult, error)
 	Unregister(ctx context.Context, nodeID string, reason string) error
 	OnTaskDispatched(handler func(task *common.TaskInfo) (*common.DispatchResult, error))

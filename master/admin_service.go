@@ -7,13 +7,18 @@
  * @Description: Master AdminService gRPC 服务端实现
  *
  * 实现 proto AdminServiceServer 接口，提供集群管理 API：
+ * CLI/Dashboard 通过 gRPC 客户端调用这些接口获取集群信息
  *   - ListNodes:      类似 kubectl get nodes
  *   - GetNodeInfo:    获取节点详情
  *   - GetClusterStats: 类似 kubectl top nodes
  *   - ListTasks:      类似 kubectl get jobs
  *   - DrainNode:      类似 kubectl drain
- *
- * CLI/Dashboard 通过 gRPC 客户端调用这些接口获取集群信息
+ *   - EvictNode:      类似 kubectl delete node
+ *   - DisableNode:    类似 kubectl cordon
+ *   - EnableNode:     类似 kubectl uncordon
+ *   - GetNodeTop:     类似 kubectl top node
+ *   - GetNodeLogs:    类似 kubectl logs
+ *   - Authenticate:   CLI 客户端认证
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
  */
@@ -22,17 +27,21 @@ package master
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/kamalyes/go-distributed/common"
 	pb "github.com/kamalyes/go-distributed/proto"
 	"github.com/kamalyes/go-logger"
+	"github.com/kamalyes/go-toolbox/pkg/errorx"
 )
 
 // AdminService 管理服务 - 实现 pb.AdminServiceServer 接口
 type AdminService struct {
 	pb.UnimplementedAdminServiceServer
-	pool   NodeProvider
-	store  TaskStore
-	logger logger.ILogger
+	pool        NodeProvider
+	store       TaskStore
+	logger      logger.ILogger
+	authManager *common.AuthManager
 }
 
 // NewAdminService 创建管理服务
@@ -40,16 +49,60 @@ func NewAdminService(
 	pool NodeProvider,
 	store TaskStore,
 	log logger.ILogger,
+	authManager *common.AuthManager,
 ) *AdminService {
 	return &AdminService{
-		pool:   pool,
-		store:  store,
-		logger: log,
+		pool:        pool,
+		store:       store,
+		logger:      log,
+		authManager: authManager,
 	}
+}
+
+// validateAuth 验证请求中的认证令牌
+func (s *AdminService) validateAuth(ctx context.Context) error {
+	if s.authManager == nil || !s.authManager.IsAuthEnabled() {
+		return nil
+	}
+
+	token, err := extractTokenFromContext(ctx)
+	if err != nil {
+		return errorx.WrapError(common.ErrAuthRequired, err)
+	}
+
+	_, err = s.authManager.ValidateAdminToken(token)
+	if err != nil {
+		return errorx.WrapError(common.ErrAccessDenied, err)
+	}
+
+	return nil
+}
+
+// extractTokenFromContext 从 gRPC 上下文中提取认证令牌
+func extractTokenFromContext(ctx context.Context) (string, error) {
+	md, ok := common.ExtractMetadata(ctx)
+	if !ok {
+		return "", fmt.Errorf(common.ErrMetadataNotFound)
+	}
+
+	token := md.Get("authorization")
+	if token == "" {
+		token = md.Get("token")
+	}
+
+	if token == "" {
+		return "", fmt.Errorf(common.ErrAuthTokenNotFound)
+	}
+
+	return token, nil
 }
 
 // ListNodes 列出节点（类似 kubectl get nodes）
 func (s *AdminService) ListNodes(ctx context.Context, req *pb.ListNodesRequest) (*pb.ListNodesResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
 	nodeFilter := common.NewNodeFilterFromRequest(req)
 	filtered := nodeFilter.FilterNodes(s.pool.GetAll())
 
@@ -66,6 +119,10 @@ func (s *AdminService) ListNodes(ctx context.Context, req *pb.ListNodesRequest) 
 
 // GetNodeInfo 获取节点详情
 func (s *AdminService) GetNodeInfo(ctx context.Context, req *pb.GetNodeInfoRequest) (*pb.GetNodeInfoResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
 	node, ok := s.pool.Get(req.NodeId)
 	if !ok {
 		return nil, fmt.Errorf(common.ErrNodeNotFound, req.NodeId)
@@ -78,6 +135,10 @@ func (s *AdminService) GetNodeInfo(ctx context.Context, req *pb.GetNodeInfoReque
 
 // GetClusterStats 获取集群统计（类似 kubectl top nodes）
 func (s *AdminService) GetClusterStats(ctx context.Context, req *pb.ClusterStatsRequest) (*pb.ClusterStatsResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
 	nodes := s.pool.GetAll()
 
 	collector := common.NewClusterStatsCollector()
@@ -117,6 +178,10 @@ func (s *AdminService) appendTaskStats(ctx context.Context, resp *pb.ClusterStat
 
 // ListTasks 列出任务（类似 kubectl get jobs）
 func (s *AdminService) ListTasks(ctx context.Context, req *pb.ListTasksRequest) (*pb.ListTasksResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
 	tasks, err := s.loadTasks(ctx, req)
 	if err != nil {
 		return nil, err
@@ -141,30 +206,213 @@ func (s *AdminService) loadTasks(ctx context.Context, req *pb.ListTasksRequest) 
 	if req.NodeIdFilter != "" {
 		tasks, err := s.store.ListTasksByNode(ctx, req.NodeIdFilter)
 		if err != nil {
-			return nil, fmt.Errorf("failed to list tasks by node: %w", err)
+			return nil, fmt.Errorf(common.ErrFailedListTasksByNode, err)
 		}
 		return tasks, nil
 	}
 
 	tasks, err := s.store.ListTasks(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list tasks: %w", err)
+		return nil, fmt.Errorf(common.ErrFailedListTasksAll, err)
 	}
 	return tasks, nil
 }
 
 // DrainNode 排空节点（类似 kubectl drain）
 func (s *AdminService) DrainNode(ctx context.Context, req *pb.DrainNodeRequest) (*pb.DrainNodeResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
 	node, ok := s.pool.Get(req.NodeId)
 	if !ok {
 		return nil, fmt.Errorf(common.ErrNodeNotFound, req.NodeId)
 	}
 
 	node.SetState(common.NodeStateDraining)
+	node.SetSchedulable(false)
+	node.SetDisableReason("draining: " + req.Reason)
+
 	s.logger.InfoKV("Node draining", "nodeID", req.NodeId, "force", req.Force, "reason", req.Reason)
 
 	return &pb.DrainNodeResponse{
 		Accepted: true,
 		Message:  fmt.Sprintf("node %s is now draining", req.NodeId),
+	}, nil
+}
+
+// EvictNode 驱逐节点（类似 kubectl delete node）
+func (s *AdminService) EvictNode(ctx context.Context, req *pb.EvictNodeRequest) (*pb.EvictNodeResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	node, ok := s.pool.Get(req.NodeId)
+	if !ok {
+		return nil, fmt.Errorf(common.ErrNodeNotFound, req.NodeId)
+	}
+
+	node.SetState(common.NodeStateOffline)
+	s.logger.InfoKV("Node evicted",
+		"node_id", req.NodeId,
+		"hostname", node.GetHostname(),
+		"reason", req.Reason,
+		"force", req.Force,
+		"reschedule_tasks", req.RescheduleTasks)
+
+	return &pb.EvictNodeResponse{
+		Success: true,
+		Message: fmt.Sprintf("node %s evicted successfully", req.NodeId),
+	}, nil
+}
+
+// DisableNode 停用节点（类似 kubectl cordon）
+func (s *AdminService) DisableNode(ctx context.Context, req *pb.DisableNodeRequest) (*pb.DisableNodeResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	node, ok := s.pool.Get(req.NodeId)
+	if !ok {
+		return nil, fmt.Errorf(common.ErrNodeNotFound, req.NodeId)
+	}
+
+	if !node.IsSchedulable() {
+		return nil, fmt.Errorf(common.ErrNodeAlreadyDisabled, req.NodeId)
+	}
+
+	node.SetSchedulable(false)
+	node.SetDisableReason(req.Reason)
+
+	s.logger.InfoKV("Node disabled (cordon)",
+		"node_id", req.NodeId,
+		"reason", req.Reason)
+
+	return &pb.DisableNodeResponse{
+		Success: true,
+		Message: fmt.Sprintf("node %s disabled (cordoned)", req.NodeId),
+	}, nil
+}
+
+// EnableNode 启用节点（类似 kubectl uncordon）
+func (s *AdminService) EnableNode(ctx context.Context, req *pb.EnableNodeRequest) (*pb.EnableNodeResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	node, ok := s.pool.Get(req.NodeId)
+	if !ok {
+		return nil, fmt.Errorf(common.ErrNodeNotFound, req.NodeId)
+	}
+
+	if node.IsSchedulable() {
+		return nil, fmt.Errorf(common.ErrNodeAlreadyEnabled, req.NodeId)
+	}
+
+	node.SetSchedulable(true)
+	node.SetDisableReason("")
+
+	s.logger.InfoKV("Node enabled (uncordon)",
+		"node_id", req.NodeId)
+
+	return &pb.EnableNodeResponse{
+		Success: true,
+		Message: fmt.Sprintf("node %s enabled (uncordoned)", req.NodeId),
+	}, nil
+}
+
+// GetNodeTop 获取节点资源 Top（类似 kubectl top node）
+func (s *AdminService) GetNodeTop(ctx context.Context, req *pb.GetNodeTopRequest) (*pb.GetNodeTopResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	nodes := s.pool.GetAll()
+	if req.NodeId != "" {
+		node, ok := s.pool.Get(req.NodeId)
+		if !ok {
+			return nil, fmt.Errorf(common.ErrNodeNotFound, req.NodeId)
+		}
+		nodes = []common.NodeInfo{node}
+	}
+
+	topItems := make([]*pb.NodeTopInfo, 0, len(nodes))
+	for _, node := range nodes {
+		usage := node.GetResourceUsage()
+		item := &pb.NodeTopInfo{
+			NodeId:      node.GetID(),
+			Hostname:    node.GetHostname(),
+			CpuUsage:    node.GetCurrentLoad() / 100.0,
+			MemoryUsage: 0,
+			State:       common.CommonNodeStateToProto(node.GetState()),
+			Schedulable: node.IsSchedulable(),
+		}
+		if usage != nil {
+			item.CpuUsage = usage.CPUPercent / 100.0
+			item.MemoryUsage = usage.MemoryPercent / 100.0
+			item.MemoryTotal = usage.MemoryTotal
+			item.MemoryUsed = usage.MemoryUsed
+			item.RunningTasks = int32(usage.ActiveTasks)
+			item.LoadAvg_1M = usage.LoadAvg1m
+			item.LoadAvg_5M = usage.LoadAvg5m
+			item.LoadAvg_15M = usage.LoadAvg15m
+		}
+		topItems = append(topItems, item)
+	}
+
+	return &pb.GetNodeTopResponse{
+		Nodes:     topItems,
+		Timestamp: time.Now().UnixMilli(),
+	}, nil
+}
+
+// GetNodeLogs 获取节点日志（类似 kubectl logs）
+func (s *AdminService) GetNodeLogs(ctx context.Context, req *pb.GetNodeLogsRequest) (*pb.GetNodeLogsResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	node, ok := s.pool.Get(req.NodeId)
+	if !ok {
+		return nil, fmt.Errorf(common.ErrNodeNotFound, req.NodeId)
+	}
+
+	logs := []*pb.LogEntry{
+		{
+			Timestamp: time.Now().UnixMilli(),
+			Level:     "INFO",
+			Message:   fmt.Sprintf("Node %s is running, state: %v", req.NodeId, node.GetState()),
+			Fields:    map[string]string{"node_id": req.NodeId, "hostname": node.GetHostname()},
+		},
+	}
+
+	return &pb.GetNodeLogsResponse{
+		Logs:    logs,
+		HasMore: false,
+		NodeId:  req.NodeId,
+	}, nil
+}
+
+// Authenticate CLI 客户端认证
+func (s *AdminService) Authenticate(ctx context.Context, req *pb.AuthRequest) (*pb.AuthResponse, error) {
+	if s.authManager == nil || !s.authManager.IsAuthEnabled() {
+		return &pb.AuthResponse{
+			Success: false,
+			Message: common.ErrAuthDisabled,
+		}, nil
+	}
+
+	token, err := s.authManager.AuthenticateAdmin(req.Secret, req.ClientId)
+	if err != nil {
+		return &pb.AuthResponse{
+			Success: false,
+			Message: err.Error(),
+		}, nil
+	}
+
+	return &pb.AuthResponse{
+		Success: true,
+		Token:   token,
+		Message: "authenticated successfully",
 	}, nil
 }

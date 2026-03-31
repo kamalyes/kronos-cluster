@@ -65,12 +65,11 @@
 package proto
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -289,7 +288,7 @@ type BaseNodeInfo struct {
 	Hostname      string                 `protobuf:"bytes,2,opt,name=hostname,proto3" json:"hostname,omitempty"`                                                                       // 主机名
 	Ip            string                 `protobuf:"bytes,3,opt,name=ip,proto3" json:"ip,omitempty"`                                                                                   // IP 地址（Worker 的 gRPC 服务地址）
 	GrpcPort      int32                  `protobuf:"varint,4,opt,name=grpc_port,json=grpcPort,proto3" json:"grpc_port,omitempty"`                                                      // gRPC 服务端口（Worker 侧，供 Master 反向调用）
-	CpuCores      int32                    `protobuf:"varint,5,opt,name=cpu_cores,json=cpuCores,proto3" json:"cpu_cores,omitempty"`                                                      // CPU 核心数（用于负载评估）
+	CpuCores      int32                  `protobuf:"varint,5,opt,name=cpu_cores,json=cpuCores,proto3" json:"cpu_cores,omitempty"`                                                      // CPU 核心数（用于负载评估）
 	Memory        int64                  `protobuf:"varint,6,opt,name=memory,proto3" json:"memory,omitempty"`                                                                          // 内存容量（字节，用于负载评估）
 	Version       string                 `protobuf:"bytes,7,opt,name=version,proto3" json:"version,omitempty"`                                                                         // Worker 版本号（用于兼容性检查）
 	Region        string                 `protobuf:"bytes,8,opt,name=region,proto3" json:"region,omitempty"`                                                                           // 地域标签（用于亲和性调度）
@@ -495,11 +494,13 @@ func (x *NodeCapacity) GetLoadAvg_15M() float64 {
 
 // RegisterRequest 节点注册请求
 // Worker 启动后向 Master 发送，携带节点基础信息和业务扩展数据
+// 当 Master 启用安全认证时，必须携带 join_secret 字段
 type RegisterRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	NodeInfo      *BaseNodeInfo          `protobuf:"bytes,1,opt,name=node_info,json=nodeInfo,proto3" json:"node_info,omitempty"` // 节点基础信息
-	Capacity      *NodeCapacity          `protobuf:"bytes,2,opt,name=capacity,proto3" json:"capacity,omitempty"`                 // 初始容量信息
-	Extension     []byte                 `protobuf:"bytes,10,opt,name=extension,proto3" json:"extension,omitempty"`              // 业务扩展数据（如自定义节点能力描述）
+	NodeInfo      *BaseNodeInfo          `protobuf:"bytes,1,opt,name=node_info,json=nodeInfo,proto3" json:"node_info,omitempty"`       // 节点基础信息
+	Capacity      *NodeCapacity          `protobuf:"bytes,2,opt,name=capacity,proto3" json:"capacity,omitempty"`                       // 初始容量信息
+	JoinSecret    string                 `protobuf:"bytes,3,opt,name=join_secret,json=joinSecret,proto3" json:"join_secret,omitempty"` // 加入集群的预共享密钥（Master 启用认证时必填）
+	Extension     []byte                 `protobuf:"bytes,10,opt,name=extension,proto3" json:"extension,omitempty"`                    // 业务扩展数据（如自定义节点能力描述）
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -546,6 +547,13 @@ func (x *RegisterRequest) GetCapacity() *NodeCapacity {
 		return x.Capacity
 	}
 	return nil
+}
+
+func (x *RegisterRequest) GetJoinSecret() string {
+	if x != nil {
+		return x.JoinSecret
+	}
+	return ""
 }
 
 func (x *RegisterRequest) GetExtension() []byte {
@@ -2593,6 +2601,8 @@ type NodeDetail struct {
 	ActiveTaskCount      int32                  `protobuf:"varint,7,opt,name=active_task_count,json=activeTaskCount,proto3" json:"active_task_count,omitempty"`                                // 活跃任务数
 	SessionId            int64                  `protobuf:"varint,8,opt,name=session_id,json=sessionId,proto3" json:"session_id,omitempty"`                                                    // 当前会话 ID
 	ConnectionState      ConnectionState        `protobuf:"varint,9,opt,name=connection_state,json=connectionState,proto3,enum=distributed.ConnectionState" json:"connection_state,omitempty"` // 连接状态
+	Schedulable          bool                   `protobuf:"varint,10,opt,name=schedulable,proto3" json:"schedulable,omitempty"`                                                                // 是否可调度（未被 cordon）
+	DisableReason        string                 `protobuf:"bytes,11,opt,name=disable_reason,json=disableReason,proto3" json:"disable_reason,omitempty"`                                        // 停用原因（仅当 schedulable=false 时有值）
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -2688,6 +2698,20 @@ func (x *NodeDetail) GetConnectionState() ConnectionState {
 		return x.ConnectionState
 	}
 	return ConnectionState_CONNECTION_STATE_UNSPECIFIED
+}
+
+func (x *NodeDetail) GetSchedulable() bool {
+	if x != nil {
+		return x.Schedulable
+	}
+	return false
+}
+
+func (x *NodeDetail) GetDisableReason() string {
+	if x != nil {
+		return x.DisableReason
+	}
+	return ""
 }
 
 // ListNodesResponse 列出节点响应
@@ -3303,6 +3327,922 @@ func (x *DrainNodeResponse) GetPendingTasks() int32 {
 	return 0
 }
 
+// EvictNodeRequest 驱逐节点请求（类似 kubectl delete node）
+// 立即断开节点连接并将其从集群中移除，正在运行的任务将被重新调度
+type EvictNodeRequest struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	NodeId          string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`                             // 节点 ID
+	Reason          string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`                                           // 驱逐原因
+	Force           bool                   `protobuf:"varint,3,opt,name=force,proto3" json:"force,omitempty"`                                            // 是否强制驱逐（不等待任务完成）
+	RescheduleTasks bool                   `protobuf:"varint,4,opt,name=reschedule_tasks,json=rescheduleTasks,proto3" json:"reschedule_tasks,omitempty"` // 是否重新调度该节点上的任务
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *EvictNodeRequest) Reset() {
+	*x = EvictNodeRequest{}
+	mi := &file_proto_distributed_proto_msgTypes[40]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EvictNodeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EvictNodeRequest) ProtoMessage() {}
+
+func (x *EvictNodeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[40]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EvictNodeRequest.ProtoReflect.Descriptor instead.
+func (*EvictNodeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{40}
+}
+
+func (x *EvictNodeRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *EvictNodeRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+func (x *EvictNodeRequest) GetForce() bool {
+	if x != nil {
+		return x.Force
+	}
+	return false
+}
+
+func (x *EvictNodeRequest) GetRescheduleTasks() bool {
+	if x != nil {
+		return x.RescheduleTasks
+	}
+	return false
+}
+
+// EvictNodeResponse 驱逐节点响应
+type EvictNodeResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Success          bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`                                           // 是否成功驱逐
+	Message          string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`                                            // 响应描述
+	RescheduledTasks int32                  `protobuf:"varint,3,opt,name=rescheduled_tasks,json=rescheduledTasks,proto3" json:"rescheduled_tasks,omitempty"` // 被重新调度的任务数
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *EvictNodeResponse) Reset() {
+	*x = EvictNodeResponse{}
+	mi := &file_proto_distributed_proto_msgTypes[41]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EvictNodeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EvictNodeResponse) ProtoMessage() {}
+
+func (x *EvictNodeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[41]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EvictNodeResponse.ProtoReflect.Descriptor instead.
+func (*EvictNodeResponse) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{41}
+}
+
+func (x *EvictNodeResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *EvictNodeResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *EvictNodeResponse) GetRescheduledTasks() int32 {
+	if x != nil {
+		return x.RescheduledTasks
+	}
+	return 0
+}
+
+// DisableNodeRequest 停用节点请求（类似 kubectl cordon）
+// 标记节点为不可调度，不再接受新任务，但已有任务继续运行
+type DisableNodeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NodeId        string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"` // 节点 ID
+	Reason        string                 `protobuf:"bytes,2,opt,name=reason,proto3" json:"reason,omitempty"`               // 停用原因
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisableNodeRequest) Reset() {
+	*x = DisableNodeRequest{}
+	mi := &file_proto_distributed_proto_msgTypes[42]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisableNodeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisableNodeRequest) ProtoMessage() {}
+
+func (x *DisableNodeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[42]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisableNodeRequest.ProtoReflect.Descriptor instead.
+func (*DisableNodeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{42}
+}
+
+func (x *DisableNodeRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *DisableNodeRequest) GetReason() string {
+	if x != nil {
+		return x.Reason
+	}
+	return ""
+}
+
+// DisableNodeResponse 停用节点响应
+type DisableNodeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 是否成功停用
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 响应描述
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DisableNodeResponse) Reset() {
+	*x = DisableNodeResponse{}
+	mi := &file_proto_distributed_proto_msgTypes[43]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DisableNodeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DisableNodeResponse) ProtoMessage() {}
+
+func (x *DisableNodeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[43]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DisableNodeResponse.ProtoReflect.Descriptor instead.
+func (*DisableNodeResponse) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{43}
+}
+
+func (x *DisableNodeResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *DisableNodeResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// EnableNodeRequest 启用节点请求（类似 kubectl uncordon）
+// 恢复节点为可调度状态，重新接受新任务
+type EnableNodeRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NodeId        string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"` // 节点 ID
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EnableNodeRequest) Reset() {
+	*x = EnableNodeRequest{}
+	mi := &file_proto_distributed_proto_msgTypes[44]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnableNodeRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnableNodeRequest) ProtoMessage() {}
+
+func (x *EnableNodeRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[44]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnableNodeRequest.ProtoReflect.Descriptor instead.
+func (*EnableNodeRequest) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{44}
+}
+
+func (x *EnableNodeRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+// EnableNodeResponse 启用节点响应
+type EnableNodeResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 是否成功启用
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 响应描述
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EnableNodeResponse) Reset() {
+	*x = EnableNodeResponse{}
+	mi := &file_proto_distributed_proto_msgTypes[45]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EnableNodeResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EnableNodeResponse) ProtoMessage() {}
+
+func (x *EnableNodeResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[45]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EnableNodeResponse.ProtoReflect.Descriptor instead.
+func (*EnableNodeResponse) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{45}
+}
+
+func (x *EnableNodeResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *EnableNodeResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// GetNodeTopRequest 获取节点资源 Top 请求（类似 kubectl top node）
+// 获取指定节点或所有节点的实时资源使用情况
+type GetNodeTopRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	NodeId           string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`                                // 节点 ID（空=返回所有节点）
+	IncludeProcesses bool                   `protobuf:"varint,2,opt,name=include_processes,json=includeProcesses,proto3" json:"include_processes,omitempty"` // 是否包含进程级别信息
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *GetNodeTopRequest) Reset() {
+	*x = GetNodeTopRequest{}
+	mi := &file_proto_distributed_proto_msgTypes[46]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetNodeTopRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNodeTopRequest) ProtoMessage() {}
+
+func (x *GetNodeTopRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[46]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNodeTopRequest.ProtoReflect.Descriptor instead.
+func (*GetNodeTopRequest) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{46}
+}
+
+func (x *GetNodeTopRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *GetNodeTopRequest) GetIncludeProcesses() bool {
+	if x != nil {
+		return x.IncludeProcesses
+	}
+	return false
+}
+
+// NodeTopInfo 节点资源 Top 信息
+type NodeTopInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NodeId        string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`                    // 节点 ID
+	Hostname      string                 `protobuf:"bytes,2,opt,name=hostname,proto3" json:"hostname,omitempty"`                              // 主机名
+	CpuUsage      float64                `protobuf:"fixed64,3,opt,name=cpu_usage,json=cpuUsage,proto3" json:"cpu_usage,omitempty"`            // CPU 使用率（0.0 ~ 1.0）
+	MemoryUsage   float64                `protobuf:"fixed64,4,opt,name=memory_usage,json=memoryUsage,proto3" json:"memory_usage,omitempty"`   // 内存使用率（0.0 ~ 1.0）
+	MemoryUsed    int64                  `protobuf:"varint,5,opt,name=memory_used,json=memoryUsed,proto3" json:"memory_used,omitempty"`       // 已用内存（字节）
+	MemoryTotal   int64                  `protobuf:"varint,6,opt,name=memory_total,json=memoryTotal,proto3" json:"memory_total,omitempty"`    // 总内存（字节）
+	RunningTasks  int32                  `protobuf:"varint,7,opt,name=running_tasks,json=runningTasks,proto3" json:"running_tasks,omitempty"` // 运行中任务数
+	LoadAvg_1M    float64                `protobuf:"fixed64,8,opt,name=load_avg_1m,json=loadAvg1m,proto3" json:"load_avg_1m,omitempty"`       // 1 分钟平均负载
+	LoadAvg_5M    float64                `protobuf:"fixed64,9,opt,name=load_avg_5m,json=loadAvg5m,proto3" json:"load_avg_5m,omitempty"`       // 5 分钟平均负载
+	LoadAvg_15M   float64                `protobuf:"fixed64,10,opt,name=load_avg_15m,json=loadAvg15m,proto3" json:"load_avg_15m,omitempty"`   // 15 分钟平均负载
+	State         NodeState              `protobuf:"varint,11,opt,name=state,proto3,enum=distributed.NodeState" json:"state,omitempty"`       // 节点状态
+	Schedulable   bool                   `protobuf:"varint,12,opt,name=schedulable,proto3" json:"schedulable,omitempty"`                      // 是否可调度（未被 cordon）
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *NodeTopInfo) Reset() {
+	*x = NodeTopInfo{}
+	mi := &file_proto_distributed_proto_msgTypes[47]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *NodeTopInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*NodeTopInfo) ProtoMessage() {}
+
+func (x *NodeTopInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[47]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use NodeTopInfo.ProtoReflect.Descriptor instead.
+func (*NodeTopInfo) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{47}
+}
+
+func (x *NodeTopInfo) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *NodeTopInfo) GetHostname() string {
+	if x != nil {
+		return x.Hostname
+	}
+	return ""
+}
+
+func (x *NodeTopInfo) GetCpuUsage() float64 {
+	if x != nil {
+		return x.CpuUsage
+	}
+	return 0
+}
+
+func (x *NodeTopInfo) GetMemoryUsage() float64 {
+	if x != nil {
+		return x.MemoryUsage
+	}
+	return 0
+}
+
+func (x *NodeTopInfo) GetMemoryUsed() int64 {
+	if x != nil {
+		return x.MemoryUsed
+	}
+	return 0
+}
+
+func (x *NodeTopInfo) GetMemoryTotal() int64 {
+	if x != nil {
+		return x.MemoryTotal
+	}
+	return 0
+}
+
+func (x *NodeTopInfo) GetRunningTasks() int32 {
+	if x != nil {
+		return x.RunningTasks
+	}
+	return 0
+}
+
+func (x *NodeTopInfo) GetLoadAvg_1M() float64 {
+	if x != nil {
+		return x.LoadAvg_1M
+	}
+	return 0
+}
+
+func (x *NodeTopInfo) GetLoadAvg_5M() float64 {
+	if x != nil {
+		return x.LoadAvg_5M
+	}
+	return 0
+}
+
+func (x *NodeTopInfo) GetLoadAvg_15M() float64 {
+	if x != nil {
+		return x.LoadAvg_15M
+	}
+	return 0
+}
+
+func (x *NodeTopInfo) GetState() NodeState {
+	if x != nil {
+		return x.State
+	}
+	return NodeState_NODE_STATE_UNSPECIFIED
+}
+
+func (x *NodeTopInfo) GetSchedulable() bool {
+	if x != nil {
+		return x.Schedulable
+	}
+	return false
+}
+
+// GetNodeTopResponse 获取节点资源 Top 响应
+type GetNodeTopResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Nodes         []*NodeTopInfo         `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`          // 节点资源信息列表
+	Timestamp     int64                  `protobuf:"varint,2,opt,name=timestamp,proto3" json:"timestamp,omitempty"` // 采集时间戳
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetNodeTopResponse) Reset() {
+	*x = GetNodeTopResponse{}
+	mi := &file_proto_distributed_proto_msgTypes[48]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetNodeTopResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNodeTopResponse) ProtoMessage() {}
+
+func (x *GetNodeTopResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[48]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNodeTopResponse.ProtoReflect.Descriptor instead.
+func (*GetNodeTopResponse) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{48}
+}
+
+func (x *GetNodeTopResponse) GetNodes() []*NodeTopInfo {
+	if x != nil {
+		return x.Nodes
+	}
+	return nil
+}
+
+func (x *GetNodeTopResponse) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
+// GetNodeLogsRequest 获取节点日志请求（类似 kubectl logs）
+// 获取指定节点的运行日志
+type GetNodeLogsRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	NodeId         string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`                          // 节点 ID
+	TailLines      int32                  `protobuf:"varint,2,opt,name=tail_lines,json=tailLines,proto3" json:"tail_lines,omitempty"`                // 返回最后 N 行日志（0=返回全部）
+	Filter         string                 `protobuf:"bytes,3,opt,name=filter,proto3" json:"filter,omitempty"`                                        // 日志过滤关键字
+	Follow         bool                   `protobuf:"varint,4,opt,name=follow,proto3" json:"follow,omitempty"`                                       // 是否持续跟踪日志（流式返回）
+	SinceTimestamp int64                  `protobuf:"varint,5,opt,name=since_timestamp,json=sinceTimestamp,proto3" json:"since_timestamp,omitempty"` // 起始时间戳（毫秒，0=不限制）
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetNodeLogsRequest) Reset() {
+	*x = GetNodeLogsRequest{}
+	mi := &file_proto_distributed_proto_msgTypes[49]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetNodeLogsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNodeLogsRequest) ProtoMessage() {}
+
+func (x *GetNodeLogsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[49]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNodeLogsRequest.ProtoReflect.Descriptor instead.
+func (*GetNodeLogsRequest) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{49}
+}
+
+func (x *GetNodeLogsRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *GetNodeLogsRequest) GetTailLines() int32 {
+	if x != nil {
+		return x.TailLines
+	}
+	return 0
+}
+
+func (x *GetNodeLogsRequest) GetFilter() string {
+	if x != nil {
+		return x.Filter
+	}
+	return ""
+}
+
+func (x *GetNodeLogsRequest) GetFollow() bool {
+	if x != nil {
+		return x.Follow
+	}
+	return false
+}
+
+func (x *GetNodeLogsRequest) GetSinceTimestamp() int64 {
+	if x != nil {
+		return x.SinceTimestamp
+	}
+	return 0
+}
+
+// LogEntry 日志条目
+type LogEntry struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Timestamp     int64                  `protobuf:"varint,1,opt,name=timestamp,proto3" json:"timestamp,omitempty"`                                                                    // 日志时间戳
+	Level         string                 `protobuf:"bytes,2,opt,name=level,proto3" json:"level,omitempty"`                                                                             // 日志级别（INFO/WARN/ERROR/DEBUG）
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`                                                                         // 日志内容
+	Fields        map[string]string      `protobuf:"bytes,4,rep,name=fields,proto3" json:"fields,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // 结构化日志字段
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *LogEntry) Reset() {
+	*x = LogEntry{}
+	mi := &file_proto_distributed_proto_msgTypes[50]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *LogEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*LogEntry) ProtoMessage() {}
+
+func (x *LogEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[50]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use LogEntry.ProtoReflect.Descriptor instead.
+func (*LogEntry) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{50}
+}
+
+func (x *LogEntry) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
+func (x *LogEntry) GetLevel() string {
+	if x != nil {
+		return x.Level
+	}
+	return ""
+}
+
+func (x *LogEntry) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *LogEntry) GetFields() map[string]string {
+	if x != nil {
+		return x.Fields
+	}
+	return nil
+}
+
+// GetNodeLogsResponse 获取节点日志响应
+type GetNodeLogsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Logs          []*LogEntry            `protobuf:"bytes,1,rep,name=logs,proto3" json:"logs,omitempty"`                       // 日志条目列表
+	HasMore       bool                   `protobuf:"varint,2,opt,name=has_more,json=hasMore,proto3" json:"has_more,omitempty"` // 是否还有更多日志
+	NodeId        string                 `protobuf:"bytes,3,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`     // 节点 ID
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetNodeLogsResponse) Reset() {
+	*x = GetNodeLogsResponse{}
+	mi := &file_proto_distributed_proto_msgTypes[51]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetNodeLogsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetNodeLogsResponse) ProtoMessage() {}
+
+func (x *GetNodeLogsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[51]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetNodeLogsResponse.ProtoReflect.Descriptor instead.
+func (*GetNodeLogsResponse) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{51}
+}
+
+func (x *GetNodeLogsResponse) GetLogs() []*LogEntry {
+	if x != nil {
+		return x.Logs
+	}
+	return nil
+}
+
+func (x *GetNodeLogsResponse) GetHasMore() bool {
+	if x != nil {
+		return x.HasMore
+	}
+	return false
+}
+
+func (x *GetNodeLogsResponse) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+// AuthRequest 认证请求
+// CLI 客户端通过控制平面配置连接 Master 时，需先进行认证
+type AuthRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Secret        string                 `protobuf:"bytes,1,opt,name=secret,proto3" json:"secret,omitempty"`                                                                               // 预共享密钥
+	ClientId      string                 `protobuf:"bytes,2,opt,name=client_id,json=clientId,proto3" json:"client_id,omitempty"`                                                           // 客户端标识
+	Metadata      map[string]string      `protobuf:"bytes,3,rep,name=metadata,proto3" json:"metadata,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // 客户端元数据
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthRequest) Reset() {
+	*x = AuthRequest{}
+	mi := &file_proto_distributed_proto_msgTypes[52]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthRequest) ProtoMessage() {}
+
+func (x *AuthRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[52]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthRequest.ProtoReflect.Descriptor instead.
+func (*AuthRequest) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{52}
+}
+
+func (x *AuthRequest) GetSecret() string {
+	if x != nil {
+		return x.Secret
+	}
+	return ""
+}
+
+func (x *AuthRequest) GetClientId() string {
+	if x != nil {
+		return x.ClientId
+	}
+	return ""
+}
+
+func (x *AuthRequest) GetMetadata() map[string]string {
+	if x != nil {
+		return x.Metadata
+	}
+	return nil
+}
+
+// AuthResponse 认证响应
+type AuthResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`                      // 认证是否成功
+	Token         string                 `protobuf:"bytes,2,opt,name=token,proto3" json:"token,omitempty"`                           // 认证令牌（后续请求需携带）
+	Message       string                 `protobuf:"bytes,3,opt,name=message,proto3" json:"message,omitempty"`                       // 响应描述
+	ExpiresAt     int64                  `protobuf:"varint,4,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"` // 令牌过期时间戳（毫秒）
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AuthResponse) Reset() {
+	*x = AuthResponse{}
+	mi := &file_proto_distributed_proto_msgTypes[53]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AuthResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AuthResponse) ProtoMessage() {}
+
+func (x *AuthResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[53]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AuthResponse.ProtoReflect.Descriptor instead.
+func (*AuthResponse) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{53}
+}
+
+func (x *AuthResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *AuthResponse) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *AuthResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *AuthResponse) GetExpiresAt() int64 {
+	if x != nil {
+		return x.ExpiresAt
+	}
+	return 0
+}
+
 var File_proto_distributed_proto protoreflect.FileDescriptor
 
 const file_proto_distributed_proto_rawDesc = "" +
@@ -3330,10 +4270,12 @@ const file_proto_distributed_proto_rawDesc = "" +
 	"\vload_avg_1m\x18\x06 \x01(\x01R\tloadAvg1m\x12\x1e\n" +
 	"\vload_avg_5m\x18\a \x01(\x01R\tloadAvg5m\x12 \n" +
 	"\fload_avg_15m\x18\b \x01(\x01R\n" +
-	"loadAvg15m\"\x9e\x01\n" +
+	"loadAvg15m\"\xbf\x01\n" +
 	"\x0fRegisterRequest\x126\n" +
 	"\tnode_info\x18\x01 \x01(\v2\x19.distributed.BaseNodeInfoR\bnodeInfo\x125\n" +
-	"\bcapacity\x18\x02 \x01(\v2\x19.distributed.NodeCapacityR\bcapacity\x12\x1c\n" +
+	"\bcapacity\x18\x02 \x01(\v2\x19.distributed.NodeCapacityR\bcapacity\x12\x1f\n" +
+	"\vjoin_secret\x18\x03 \x01(\tR\n" +
+	"joinSecret\x12\x1c\n" +
 	"\textension\x18\n" +
 	" \x01(\fR\textension\"\xaa\x01\n" +
 	"\x10RegisterResponse\x12\x18\n" +
@@ -3498,7 +4440,7 @@ const file_proto_distributed_proto_rawDesc = "" +
 	"page_token\x18\x06 \x01(\tR\tpageToken\x1a@\n" +
 	"\x12LabelSelectorEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xca\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x93\x04\n" +
 	"\n" +
 	"NodeDetail\x126\n" +
 	"\tnode_info\x18\x01 \x01(\v2\x19.distributed.BaseNodeInfoR\bnodeInfo\x12,\n" +
@@ -3510,7 +4452,10 @@ const file_proto_distributed_proto_rawDesc = "" +
 	"\x11active_task_count\x18\a \x01(\x05R\x0factiveTaskCount\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\b \x01(\x03R\tsessionId\x12G\n" +
-	"\x10connection_state\x18\t \x01(\x0e2\x1c.distributed.ConnectionStateR\x0fconnectionState\"\x8b\x01\n" +
+	"\x10connection_state\x18\t \x01(\x0e2\x1c.distributed.ConnectionStateR\x0fconnectionState\x12 \n" +
+	"\vschedulable\x18\n" +
+	" \x01(\bR\vschedulable\x12%\n" +
+	"\x0edisable_reason\x18\v \x01(\tR\rdisableReason\"\x8b\x01\n" +
 	"\x11ListNodesResponse\x12-\n" +
 	"\x05nodes\x18\x01 \x03(\v2\x17.distributed.NodeDetailR\x05nodes\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
@@ -3566,7 +4511,81 @@ const file_proto_distributed_proto_rawDesc = "" +
 	"\x11DrainNodeResponse\x12\x1a\n" +
 	"\baccepted\x18\x01 \x01(\bR\baccepted\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\x12#\n" +
-	"\rpending_tasks\x18\x03 \x01(\x05R\fpendingTasks*\xcb\x01\n" +
+	"\rpending_tasks\x18\x03 \x01(\x05R\fpendingTasks\"\x84\x01\n" +
+	"\x10EvictNodeRequest\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\x12\x14\n" +
+	"\x05force\x18\x03 \x01(\bR\x05force\x12)\n" +
+	"\x10reschedule_tasks\x18\x04 \x01(\bR\x0frescheduleTasks\"t\n" +
+	"\x11EvictNodeResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12+\n" +
+	"\x11rescheduled_tasks\x18\x03 \x01(\x05R\x10rescheduledTasks\"E\n" +
+	"\x12DisableNodeRequest\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x16\n" +
+	"\x06reason\x18\x02 \x01(\tR\x06reason\"I\n" +
+	"\x13DisableNodeResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\",\n" +
+	"\x11EnableNodeRequest\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\"H\n" +
+	"\x12EnableNodeResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"Y\n" +
+	"\x11GetNodeTopRequest\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12+\n" +
+	"\x11include_processes\x18\x02 \x01(\bR\x10includeProcesses\"\x9d\x03\n" +
+	"\vNodeTopInfo\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1a\n" +
+	"\bhostname\x18\x02 \x01(\tR\bhostname\x12\x1b\n" +
+	"\tcpu_usage\x18\x03 \x01(\x01R\bcpuUsage\x12!\n" +
+	"\fmemory_usage\x18\x04 \x01(\x01R\vmemoryUsage\x12\x1f\n" +
+	"\vmemory_used\x18\x05 \x01(\x03R\n" +
+	"memoryUsed\x12!\n" +
+	"\fmemory_total\x18\x06 \x01(\x03R\vmemoryTotal\x12#\n" +
+	"\rrunning_tasks\x18\a \x01(\x05R\frunningTasks\x12\x1e\n" +
+	"\vload_avg_1m\x18\b \x01(\x01R\tloadAvg1m\x12\x1e\n" +
+	"\vload_avg_5m\x18\t \x01(\x01R\tloadAvg5m\x12 \n" +
+	"\fload_avg_15m\x18\n" +
+	" \x01(\x01R\n" +
+	"loadAvg15m\x12,\n" +
+	"\x05state\x18\v \x01(\x0e2\x16.distributed.NodeStateR\x05state\x12 \n" +
+	"\vschedulable\x18\f \x01(\bR\vschedulable\"b\n" +
+	"\x12GetNodeTopResponse\x12.\n" +
+	"\x05nodes\x18\x01 \x03(\v2\x18.distributed.NodeTopInfoR\x05nodes\x12\x1c\n" +
+	"\ttimestamp\x18\x02 \x01(\x03R\ttimestamp\"\xa5\x01\n" +
+	"\x12GetNodeLogsRequest\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1d\n" +
+	"\n" +
+	"tail_lines\x18\x02 \x01(\x05R\ttailLines\x12\x16\n" +
+	"\x06filter\x18\x03 \x01(\tR\x06filter\x12\x16\n" +
+	"\x06follow\x18\x04 \x01(\bR\x06follow\x12'\n" +
+	"\x0fsince_timestamp\x18\x05 \x01(\x03R\x0esinceTimestamp\"\xce\x01\n" +
+	"\bLogEntry\x12\x1c\n" +
+	"\ttimestamp\x18\x01 \x01(\x03R\ttimestamp\x12\x14\n" +
+	"\x05level\x18\x02 \x01(\tR\x05level\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\x129\n" +
+	"\x06fields\x18\x04 \x03(\v2!.distributed.LogEntry.FieldsEntryR\x06fields\x1a9\n" +
+	"\vFieldsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"t\n" +
+	"\x13GetNodeLogsResponse\x12)\n" +
+	"\x04logs\x18\x01 \x03(\v2\x15.distributed.LogEntryR\x04logs\x12\x19\n" +
+	"\bhas_more\x18\x02 \x01(\bR\ahasMore\x12\x17\n" +
+	"\anode_id\x18\x03 \x01(\tR\x06nodeId\"\xc3\x01\n" +
+	"\vAuthRequest\x12\x16\n" +
+	"\x06secret\x18\x01 \x01(\tR\x06secret\x12\x1b\n" +
+	"\tclient_id\x18\x02 \x01(\tR\bclientId\x12B\n" +
+	"\bmetadata\x18\x03 \x03(\v2&.distributed.AuthRequest.MetadataEntryR\bmetadata\x1a;\n" +
+	"\rMetadataEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"w\n" +
+	"\fAuthResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x14\n" +
+	"\x05token\x18\x02 \x01(\tR\x05token\x12\x18\n" +
+	"\amessage\x18\x03 \x01(\tR\amessage\x12\x1d\n" +
+	"\n" +
+	"expires_at\x18\x04 \x01(\x03R\texpiresAt*\xcb\x01\n" +
 	"\tNodeState\x12\x1a\n" +
 	"\x16NODE_STATE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fNODE_STATE_IDLE\x10\x01\x12\x16\n" +
@@ -3608,13 +4627,21 @@ const file_proto_distributed_proto_rawDesc = "" +
 	"\vHealthCheck\x12\x1f.distributed.HealthCheckRequest\x1a .distributed.HealthCheckResponse\x12M\n" +
 	"\n" +
 	"QueryTasks\x12\x1e.distributed.QueryTasksRequest\x1a\x1f.distributed.QueryTasksResponse\x12Y\n" +
-	"\x0eUpdateCapacity\x12\".distributed.UpdateCapacityRequest\x1a#.distributed.UpdateCapacityResponse2\x9c\x03\n" +
+	"\x0eUpdateCapacity\x12\".distributed.UpdateCapacityRequest\x1a#.distributed.UpdateCapacityResponse2\xef\x06\n" +
 	"\fAdminService\x12J\n" +
 	"\tListNodes\x12\x1d.distributed.ListNodesRequest\x1a\x1e.distributed.ListNodesResponse\x12P\n" +
 	"\vGetNodeInfo\x12\x1f.distributed.GetNodeInfoRequest\x1a .distributed.GetNodeInfoResponse\x12V\n" +
 	"\x0fGetClusterStats\x12 .distributed.ClusterStatsRequest\x1a!.distributed.ClusterStatsResponse\x12J\n" +
 	"\tListTasks\x12\x1d.distributed.ListTasksRequest\x1a\x1e.distributed.ListTasksResponse\x12J\n" +
-	"\tDrainNode\x12\x1d.distributed.DrainNodeRequest\x1a\x1e.distributed.DrainNodeResponseB0Z.github.com/kamalyes/go-distributed/proto;protob\x06proto3"
+	"\tDrainNode\x12\x1d.distributed.DrainNodeRequest\x1a\x1e.distributed.DrainNodeResponse\x12J\n" +
+	"\tEvictNode\x12\x1d.distributed.EvictNodeRequest\x1a\x1e.distributed.EvictNodeResponse\x12P\n" +
+	"\vDisableNode\x12\x1f.distributed.DisableNodeRequest\x1a .distributed.DisableNodeResponse\x12M\n" +
+	"\n" +
+	"EnableNode\x12\x1e.distributed.EnableNodeRequest\x1a\x1f.distributed.EnableNodeResponse\x12M\n" +
+	"\n" +
+	"GetNodeTop\x12\x1e.distributed.GetNodeTopRequest\x1a\x1f.distributed.GetNodeTopResponse\x12P\n" +
+	"\vGetNodeLogs\x12\x1f.distributed.GetNodeLogsRequest\x1a .distributed.GetNodeLogsResponse\x12C\n" +
+	"\fAuthenticate\x12\x18.distributed.AuthRequest\x1a\x19.distributed.AuthResponseB0Z.github.com/kamalyes/go-distributed/proto;protob\x06proto3"
 
 var (
 	file_proto_distributed_proto_rawDescOnce sync.Once
@@ -3629,7 +4656,7 @@ func file_proto_distributed_proto_rawDescGZIP() []byte {
 }
 
 var file_proto_distributed_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_proto_distributed_proto_msgTypes = make([]protoimpl.MessageInfo, 45)
+var file_proto_distributed_proto_msgTypes = make([]protoimpl.MessageInfo, 61)
 var file_proto_distributed_proto_goTypes = []any{
 	(NodeState)(0),                   // 0: distributed.NodeState
 	(TaskState)(0),                   // 1: distributed.TaskState
@@ -3674,19 +4701,35 @@ var file_proto_distributed_proto_goTypes = []any{
 	(*ListTasksResponse)(nil),        // 40: distributed.ListTasksResponse
 	(*DrainNodeRequest)(nil),         // 41: distributed.DrainNodeRequest
 	(*DrainNodeResponse)(nil),        // 42: distributed.DrainNodeResponse
-	nil,                              // 43: distributed.BaseNodeInfo.LabelsEntry
-	nil,                              // 44: distributed.TaskInfo.MetadataEntry
-	nil,                              // 45: distributed.ListNodesRequest.LabelSelectorEntry
-	nil,                              // 46: distributed.ClusterStatsResponse.NodesByRegionEntry
-	nil,                              // 47: distributed.ClusterStatsResponse.NodesByStateEntry
+	(*EvictNodeRequest)(nil),         // 43: distributed.EvictNodeRequest
+	(*EvictNodeResponse)(nil),        // 44: distributed.EvictNodeResponse
+	(*DisableNodeRequest)(nil),       // 45: distributed.DisableNodeRequest
+	(*DisableNodeResponse)(nil),      // 46: distributed.DisableNodeResponse
+	(*EnableNodeRequest)(nil),        // 47: distributed.EnableNodeRequest
+	(*EnableNodeResponse)(nil),       // 48: distributed.EnableNodeResponse
+	(*GetNodeTopRequest)(nil),        // 49: distributed.GetNodeTopRequest
+	(*NodeTopInfo)(nil),              // 50: distributed.NodeTopInfo
+	(*GetNodeTopResponse)(nil),       // 51: distributed.GetNodeTopResponse
+	(*GetNodeLogsRequest)(nil),       // 52: distributed.GetNodeLogsRequest
+	(*LogEntry)(nil),                 // 53: distributed.LogEntry
+	(*GetNodeLogsResponse)(nil),      // 54: distributed.GetNodeLogsResponse
+	(*AuthRequest)(nil),              // 55: distributed.AuthRequest
+	(*AuthResponse)(nil),             // 56: distributed.AuthResponse
+	nil,                              // 57: distributed.BaseNodeInfo.LabelsEntry
+	nil,                              // 58: distributed.TaskInfo.MetadataEntry
+	nil,                              // 59: distributed.ListNodesRequest.LabelSelectorEntry
+	nil,                              // 60: distributed.ClusterStatsResponse.NodesByRegionEntry
+	nil,                              // 61: distributed.ClusterStatsResponse.NodesByStateEntry
+	nil,                              // 62: distributed.LogEntry.FieldsEntry
+	nil,                              // 63: distributed.AuthRequest.MetadataEntry
 }
 var file_proto_distributed_proto_depIdxs = []int32{
-	43, // 0: distributed.BaseNodeInfo.labels:type_name -> distributed.BaseNodeInfo.LabelsEntry
+	57, // 0: distributed.BaseNodeInfo.labels:type_name -> distributed.BaseNodeInfo.LabelsEntry
 	3,  // 1: distributed.RegisterRequest.node_info:type_name -> distributed.BaseNodeInfo
 	4,  // 2: distributed.RegisterRequest.capacity:type_name -> distributed.NodeCapacity
 	0,  // 3: distributed.HeartbeatRequest.state:type_name -> distributed.NodeState
 	4,  // 4: distributed.HeartbeatRequest.capacity:type_name -> distributed.NodeCapacity
-	44, // 5: distributed.TaskInfo.metadata:type_name -> distributed.TaskInfo.MetadataEntry
+	58, // 5: distributed.TaskInfo.metadata:type_name -> distributed.TaskInfo.MetadataEntry
 	1,  // 6: distributed.TaskInfo.state:type_name -> distributed.TaskState
 	11, // 7: distributed.DispatchTaskRequest.task:type_name -> distributed.TaskInfo
 	1,  // 8: distributed.TaskStatusUpdate.state:type_name -> distributed.TaskState
@@ -3712,52 +4755,69 @@ var file_proto_distributed_proto_depIdxs = []int32{
 	24, // 28: distributed.WorkerReport.drain_complete:type_name -> distributed.DrainCompleteRequest
 	26, // 29: distributed.WorkerReport.capacity_update:type_name -> distributed.UpdateCapacityRequest
 	0,  // 30: distributed.ListNodesRequest.filter_states:type_name -> distributed.NodeState
-	45, // 31: distributed.ListNodesRequest.label_selector:type_name -> distributed.ListNodesRequest.LabelSelectorEntry
+	59, // 31: distributed.ListNodesRequest.label_selector:type_name -> distributed.ListNodesRequest.LabelSelectorEntry
 	3,  // 32: distributed.NodeDetail.node_info:type_name -> distributed.BaseNodeInfo
 	0,  // 33: distributed.NodeDetail.state:type_name -> distributed.NodeState
 	4,  // 34: distributed.NodeDetail.capacity:type_name -> distributed.NodeCapacity
 	2,  // 35: distributed.NodeDetail.connection_state:type_name -> distributed.ConnectionState
 	33, // 36: distributed.ListNodesResponse.nodes:type_name -> distributed.NodeDetail
 	33, // 37: distributed.GetNodeInfoResponse.node:type_name -> distributed.NodeDetail
-	46, // 38: distributed.ClusterStatsResponse.nodes_by_region:type_name -> distributed.ClusterStatsResponse.NodesByRegionEntry
-	47, // 39: distributed.ClusterStatsResponse.nodes_by_state:type_name -> distributed.ClusterStatsResponse.NodesByStateEntry
+	60, // 38: distributed.ClusterStatsResponse.nodes_by_region:type_name -> distributed.ClusterStatsResponse.NodesByRegionEntry
+	61, // 39: distributed.ClusterStatsResponse.nodes_by_state:type_name -> distributed.ClusterStatsResponse.NodesByStateEntry
 	1,  // 40: distributed.ListTasksRequest.filter_states:type_name -> distributed.TaskState
 	11, // 41: distributed.ListTasksResponse.tasks:type_name -> distributed.TaskInfo
-	5,  // 42: distributed.MasterService.RegisterNode:input_type -> distributed.RegisterRequest
-	7,  // 43: distributed.MasterService.Heartbeat:input_type -> distributed.HeartbeatRequest
-	9,  // 44: distributed.MasterService.UnregisterNode:input_type -> distributed.UnregisterRequest
-	14, // 45: distributed.MasterService.ReportTaskStatus:input_type -> distributed.TaskStatusUpdate
-	31, // 46: distributed.MasterService.ConnectStream:input_type -> distributed.WorkerReport
-	12, // 47: distributed.WorkerService.DispatchTask:input_type -> distributed.DispatchTaskRequest
-	16, // 48: distributed.WorkerService.CancelTask:input_type -> distributed.CancelTaskRequest
-	28, // 49: distributed.WorkerService.HealthCheck:input_type -> distributed.HealthCheckRequest
-	18, // 50: distributed.WorkerService.QueryTasks:input_type -> distributed.QueryTasksRequest
-	26, // 51: distributed.WorkerService.UpdateCapacity:input_type -> distributed.UpdateCapacityRequest
-	32, // 52: distributed.AdminService.ListNodes:input_type -> distributed.ListNodesRequest
-	35, // 53: distributed.AdminService.GetNodeInfo:input_type -> distributed.GetNodeInfoRequest
-	37, // 54: distributed.AdminService.GetClusterStats:input_type -> distributed.ClusterStatsRequest
-	39, // 55: distributed.AdminService.ListTasks:input_type -> distributed.ListTasksRequest
-	41, // 56: distributed.AdminService.DrainNode:input_type -> distributed.DrainNodeRequest
-	6,  // 57: distributed.MasterService.RegisterNode:output_type -> distributed.RegisterResponse
-	8,  // 58: distributed.MasterService.Heartbeat:output_type -> distributed.HeartbeatResponse
-	10, // 59: distributed.MasterService.UnregisterNode:output_type -> distributed.UnregisterResponse
-	15, // 60: distributed.MasterService.ReportTaskStatus:output_type -> distributed.TaskStatusUpdateResponse
-	30, // 61: distributed.MasterService.ConnectStream:output_type -> distributed.MasterCommand
-	13, // 62: distributed.WorkerService.DispatchTask:output_type -> distributed.DispatchTaskResponse
-	17, // 63: distributed.WorkerService.CancelTask:output_type -> distributed.CancelTaskResponse
-	29, // 64: distributed.WorkerService.HealthCheck:output_type -> distributed.HealthCheckResponse
-	19, // 65: distributed.WorkerService.QueryTasks:output_type -> distributed.QueryTasksResponse
-	27, // 66: distributed.WorkerService.UpdateCapacity:output_type -> distributed.UpdateCapacityResponse
-	34, // 67: distributed.AdminService.ListNodes:output_type -> distributed.ListNodesResponse
-	36, // 68: distributed.AdminService.GetNodeInfo:output_type -> distributed.GetNodeInfoResponse
-	38, // 69: distributed.AdminService.GetClusterStats:output_type -> distributed.ClusterStatsResponse
-	40, // 70: distributed.AdminService.ListTasks:output_type -> distributed.ListTasksResponse
-	42, // 71: distributed.AdminService.DrainNode:output_type -> distributed.DrainNodeResponse
-	57, // [57:72] is the sub-list for method output_type
-	42, // [42:57] is the sub-list for method input_type
-	42, // [42:42] is the sub-list for extension type_name
-	42, // [42:42] is the sub-list for extension extendee
-	0,  // [0:42] is the sub-list for field type_name
+	0,  // 42: distributed.NodeTopInfo.state:type_name -> distributed.NodeState
+	50, // 43: distributed.GetNodeTopResponse.nodes:type_name -> distributed.NodeTopInfo
+	62, // 44: distributed.LogEntry.fields:type_name -> distributed.LogEntry.FieldsEntry
+	53, // 45: distributed.GetNodeLogsResponse.logs:type_name -> distributed.LogEntry
+	63, // 46: distributed.AuthRequest.metadata:type_name -> distributed.AuthRequest.MetadataEntry
+	5,  // 47: distributed.MasterService.RegisterNode:input_type -> distributed.RegisterRequest
+	7,  // 48: distributed.MasterService.Heartbeat:input_type -> distributed.HeartbeatRequest
+	9,  // 49: distributed.MasterService.UnregisterNode:input_type -> distributed.UnregisterRequest
+	14, // 50: distributed.MasterService.ReportTaskStatus:input_type -> distributed.TaskStatusUpdate
+	31, // 51: distributed.MasterService.ConnectStream:input_type -> distributed.WorkerReport
+	12, // 52: distributed.WorkerService.DispatchTask:input_type -> distributed.DispatchTaskRequest
+	16, // 53: distributed.WorkerService.CancelTask:input_type -> distributed.CancelTaskRequest
+	28, // 54: distributed.WorkerService.HealthCheck:input_type -> distributed.HealthCheckRequest
+	18, // 55: distributed.WorkerService.QueryTasks:input_type -> distributed.QueryTasksRequest
+	26, // 56: distributed.WorkerService.UpdateCapacity:input_type -> distributed.UpdateCapacityRequest
+	32, // 57: distributed.AdminService.ListNodes:input_type -> distributed.ListNodesRequest
+	35, // 58: distributed.AdminService.GetNodeInfo:input_type -> distributed.GetNodeInfoRequest
+	37, // 59: distributed.AdminService.GetClusterStats:input_type -> distributed.ClusterStatsRequest
+	39, // 60: distributed.AdminService.ListTasks:input_type -> distributed.ListTasksRequest
+	41, // 61: distributed.AdminService.DrainNode:input_type -> distributed.DrainNodeRequest
+	43, // 62: distributed.AdminService.EvictNode:input_type -> distributed.EvictNodeRequest
+	45, // 63: distributed.AdminService.DisableNode:input_type -> distributed.DisableNodeRequest
+	47, // 64: distributed.AdminService.EnableNode:input_type -> distributed.EnableNodeRequest
+	49, // 65: distributed.AdminService.GetNodeTop:input_type -> distributed.GetNodeTopRequest
+	52, // 66: distributed.AdminService.GetNodeLogs:input_type -> distributed.GetNodeLogsRequest
+	55, // 67: distributed.AdminService.Authenticate:input_type -> distributed.AuthRequest
+	6,  // 68: distributed.MasterService.RegisterNode:output_type -> distributed.RegisterResponse
+	8,  // 69: distributed.MasterService.Heartbeat:output_type -> distributed.HeartbeatResponse
+	10, // 70: distributed.MasterService.UnregisterNode:output_type -> distributed.UnregisterResponse
+	15, // 71: distributed.MasterService.ReportTaskStatus:output_type -> distributed.TaskStatusUpdateResponse
+	30, // 72: distributed.MasterService.ConnectStream:output_type -> distributed.MasterCommand
+	13, // 73: distributed.WorkerService.DispatchTask:output_type -> distributed.DispatchTaskResponse
+	17, // 74: distributed.WorkerService.CancelTask:output_type -> distributed.CancelTaskResponse
+	29, // 75: distributed.WorkerService.HealthCheck:output_type -> distributed.HealthCheckResponse
+	19, // 76: distributed.WorkerService.QueryTasks:output_type -> distributed.QueryTasksResponse
+	27, // 77: distributed.WorkerService.UpdateCapacity:output_type -> distributed.UpdateCapacityResponse
+	34, // 78: distributed.AdminService.ListNodes:output_type -> distributed.ListNodesResponse
+	36, // 79: distributed.AdminService.GetNodeInfo:output_type -> distributed.GetNodeInfoResponse
+	38, // 80: distributed.AdminService.GetClusterStats:output_type -> distributed.ClusterStatsResponse
+	40, // 81: distributed.AdminService.ListTasks:output_type -> distributed.ListTasksResponse
+	42, // 82: distributed.AdminService.DrainNode:output_type -> distributed.DrainNodeResponse
+	44, // 83: distributed.AdminService.EvictNode:output_type -> distributed.EvictNodeResponse
+	46, // 84: distributed.AdminService.DisableNode:output_type -> distributed.DisableNodeResponse
+	48, // 85: distributed.AdminService.EnableNode:output_type -> distributed.EnableNodeResponse
+	51, // 86: distributed.AdminService.GetNodeTop:output_type -> distributed.GetNodeTopResponse
+	54, // 87: distributed.AdminService.GetNodeLogs:output_type -> distributed.GetNodeLogsResponse
+	56, // 88: distributed.AdminService.Authenticate:output_type -> distributed.AuthResponse
+	68, // [68:89] is the sub-list for method output_type
+	47, // [47:68] is the sub-list for method input_type
+	47, // [47:47] is the sub-list for extension type_name
+	47, // [47:47] is the sub-list for extension extendee
+	0,  // [0:47] is the sub-list for field type_name
 }
 
 func init() { file_proto_distributed_proto_init() }
@@ -3787,7 +4847,7 @@ func file_proto_distributed_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_distributed_proto_rawDesc), len(file_proto_distributed_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   45,
+			NumMessages:   61,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

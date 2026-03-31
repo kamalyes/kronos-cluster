@@ -94,7 +94,7 @@ func (c *Client) reconnect() error {
 
 	conn, err := grpc.NewClient(c.address, dialOpts...)
 	if err != nil {
-		return fmt.Errorf("reconnect failed: %w", err)
+		return fmt.Errorf(common.ErrReconnectFailed, err)
 	}
 
 	c.conn = conn

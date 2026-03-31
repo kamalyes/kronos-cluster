@@ -18,8 +18,8 @@ import (
 	"github.com/kamalyes/go-distributed/common"
 	"github.com/kamalyes/go-distributed/transport"
 	"github.com/kamalyes/go-logger"
-	"github.com/kamalyes/go-toolbox/pkg/syncx"
 	"github.com/kamalyes/go-toolbox/pkg/random"
+	"github.com/kamalyes/go-toolbox/pkg/syncx"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -178,6 +178,10 @@ func (m *mockWorkerTransport) ReportTaskStatus(ctx context.Context, update *comm
 
 func (m *mockWorkerTransport) ConnectStream(ctx context.Context) error {
 	return nil
+}
+
+func (m *mockWorkerTransport) RegisterWithSecret(ctx context.Context, nodeInfo common.NodeInfo, joinSecret string, extension []byte) (*transport.RegistrationResult, error) {
+	return &transport.RegistrationResult{Success: true, Message: "ok"}, nil
 }
 
 func TestWorkerHeartbeatRejectedDoesNotDirectlyRegisterWhenReconnectInProgress(t *testing.T) {

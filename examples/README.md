@@ -186,6 +186,19 @@ m, _ := master.NewMaster[*common.BaseNodeInfo](&common.MasterConfig{
     HeartbeatInterval:  5 * time.Second,   // 心跳间隔
     HeartbeatTimeout:   15 * time.Second,  // 心跳超时
     MaxFailures:        3,                  // 最大失败次数
+    // 安全认证配置（可选）
+    EnableAuth:      true,                  // 启用安全认证
+    Secret:          "your-jwt-secret",     // JWT 签名密钥
+    TokenExpiration: 24 * time.Hour,        // 令牌过期时间
+    JoinSecrets: []*common.JoinSecretEntry{ // Worker 加入集群的预共享密钥
+        {
+            TokenID:     "abcdef",
+            Secret:      "0123456789abcdef",
+            ExpireAt:    time.Now().Add(24 * time.Hour),
+            MaxUsages:   10,
+            Description: "default join token",
+        },
+    },
 }, converter, store, log)
 ```
 
@@ -235,6 +248,9 @@ w, _ := worker.NewWorker[*common.BaseNodeInfo](&common.WorkerConfig{
     TransportType:     common.TransportTypeGRPC,   // 传输类型
     ResourceMonitor:   true,                      // 启用资源监控
     MaxConcurrentTasks: 10,                        // 最大并发任务数
+    // 安全认证配置（与 Master 的 EnableAuth 对应）
+    EnableAuth:  true,                             // 启用安全认证
+    JoinSecret:  "abcdef.0123456789abcdef",        // <token-id>.<secret> 格式
 }, nodeFactory, log)
 ```
 
@@ -321,6 +337,16 @@ A: 检查以下几点：
 1. Master 是否已启动（端口9000）
 2. Worker 的 MasterAddr 配置是否正确
 3. 防火墙是否允许连接
+4. 如果 Master 启用了安全认证（`EnableAuth: true`），Worker 也需要配置对应的 `EnableAuth` 和 `JoinSecret`
+
+#### Q: Worker 注册失败提示认证错误？
+
+A: 检查以下几点：
+
+1. Master 的 `EnableAuth` 是否为 `true`
+2. Worker 的 `JoinSecret` 格式是否正确（`<token-id>.<secret>`）
+3. JoinSecret 是否已过期（检查 `ExpireAt`）
+4. JoinSecret 使用次数是否已达上限（检查 `MaxUsages` 和 `UsedCount`）
 
 #### Q: 任务一直处于 Pending 状态？
 

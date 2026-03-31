@@ -39,6 +39,14 @@ func main() {
 		HeartbeatInterval:    5 * time.Second,
 		HeartbeatTimeout:     15 * time.Second,
 		HeartbeatMaxFailures: 3,
+		EnableAuth:           true,
+		Secret:               "my-jwt-signing-secret-key",
+		TokenExpiration:      24 * time.Hour,
+		GenerateConfigFile:   true,
+		ControlPlane: &common.ControlPlaneConfig{
+			ServerAddr: "localhost:9001",
+			EnableAuth: true,
+		},
 	}, converter, master.NewMemoryTaskStore(log), log)
 	if err != nil {
 		log.Fatal(err.Error())
@@ -50,6 +58,18 @@ func main() {
 	defer m.Stop()
 
 	log.Info("Master started on port 9000")
+
+	entry := m.GetAuthManager().CreateJoinSecret(2*time.Hour, "example worker token", 0, map[string]string{
+		"purpose": "example",
+		"env":     "development",
+	})
+	log.InfoKV("Join secret created",
+		"token", entry.ID+"."+entry.Secret,
+		"expires_at", entry.ExpiresAt,
+		"description", entry.Description)
+
+	// 自动生成配置文件
+	log.Info("Config file generation is now controlled by MasterConfig.GenerateConfigFile option")
 
 	// 启动一个协程，定期提交新任务
 	go func() {

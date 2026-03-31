@@ -13,13 +13,14 @@ package master
 import (
 	"context"
 	"fmt"
+	"time"
+
 	"github.com/kamalyes/go-distributed/common"
 	"github.com/kamalyes/go-distributed/transport"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/errorx"
 	"github.com/kamalyes/go-toolbox/pkg/mathx"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"
-	"time"
 )
 
 // Master 泛型主控制器 - 管理分布式节点生命周期和任务调度
@@ -31,6 +32,7 @@ type Master[T common.NodeInfo] struct {
 	adminService  *AdminService                    // 管理服务
 	transport     transport.MasterTransport        // 传输层
 	tokenManager  *common.TokenManager             // 令牌管理器
+	authManager   *common.AuthManager              // 安全认证管理器
 	nodeConverter func(common.NodeInfo) (T, error) // 节点类型转换器
 	logger        logger.ILogger                   // 日志
 	running       *syncx.Bool                      // 运行状态
@@ -102,6 +104,7 @@ func NewMaster[T common.NodeInfo](
 	pool := NewNodePool[T](selector, log, config)
 	health := NewHealthChecker[T](pool, config.HeartbeatInterval, config.HeartbeatTimeout, config.HeartbeatMaxFailures, log)
 	tokenManager := common.NewTokenManager(config.Secret, config.TokenExpiration, config.TokenIssuer)
+	authManager := common.NewAuthManager(config)
 
 	masterTransport, err := createMasterTransport(config, log)
 	if err != nil {
@@ -111,7 +114,7 @@ func NewMaster[T common.NodeInfo](
 	adapter := &nodePoolAdapter[T]{pool: pool}
 
 	taskManager := NewTaskManager(adapter, masterTransport, store, log, config.CandidateNodeCount)
-	adminService := NewAdminService(adapter, store, log)
+	adminService := NewAdminService(adapter, store, log, authManager)
 
 	if grpcTransport, ok := masterTransport.(*transport.GRPCMasterTransport); ok {
 		grpcTransport.RegisterAdminService(adminService)
@@ -125,6 +128,7 @@ func NewMaster[T common.NodeInfo](
 		adminService:  adminService,
 		transport:     masterTransport,
 		tokenManager:  tokenManager,
+		authManager:   authManager,
 		nodeConverter: nodeConverter,
 		logger:        log,
 		running:       syncx.NewBool(false),
@@ -179,6 +183,16 @@ func (m *Master[T]) Start(ctx context.Context) error {
 		"transport", m.config.TransportType,
 		"grpc_port", m.config.GRPCPort)
 
+	// 自动生成配置文件（如果启用）
+	if m.config.GenerateConfigFile {
+		serverAddr := m.config.ControlPlane.ServerAddr
+		if serverAddr == "" {
+			serverAddr = fmt.Sprintf("localhost:%d", m.config.GRPCPort)
+		}
+		// 使用 MasterConfig.Secret 作为 CLI 认证密钥
+		common.GenerateConfigFile(m.config.Secret, serverAddr, m.logger)
+	}
+
 	return nil
 }
 
@@ -207,6 +221,33 @@ func (m *Master[T]) Stop() error {
 // setupTransportHandlers 设置传输层事件回调
 func (m *Master[T]) setupTransportHandlers() {
 	m.transport.OnRegister(func(nodeInfo common.NodeInfo, extension []byte) (*transport.RegistrationResult, error) {
+		node, err := m.nodeConverter(nodeInfo)
+		if err != nil {
+			return &transport.RegistrationResult{Success: false, Message: err.Error()}, nil
+		}
+
+		if err := m.pool.Register(node); err != nil {
+			return &transport.RegistrationResult{Success: false, Message: err.Error()}, nil
+		}
+
+		token, _ := m.tokenManager.GenerateToken(nodeInfo.GetID())
+
+		return &transport.RegistrationResult{
+			Success:           true,
+			Message:           "registered successfully",
+			Token:             token,
+			HeartbeatInterval: int64(m.config.HeartbeatInterval.Seconds()),
+		}, nil
+	})
+
+	m.transport.OnRegisterWithSecret(func(nodeInfo common.NodeInfo, joinSecret string, extension []byte) (*transport.RegistrationResult, error) {
+		if m.authManager.IsAuthEnabled() {
+			if err := m.authManager.ValidateJoinSecret(joinSecret); err != nil {
+				return &transport.RegistrationResult{Success: false, Message: err.Error()}, nil
+			}
+			m.authManager.UseJoinSecret(joinSecret)
+		}
+
 		node, err := m.nodeConverter(nodeInfo)
 		if err != nil {
 			return &transport.RegistrationResult{Success: false, Message: err.Error()}, nil
@@ -266,6 +307,11 @@ func (m *Master[T]) GetAdminService() *AdminService {
 // GetConfig 获取 Master 配置
 func (m *Master[T]) GetConfig() *common.MasterConfig {
 	return m.config
+}
+
+// GetAuthManager 获取安全认证管理器
+func (m *Master[T]) GetAuthManager() *common.AuthManager {
+	return m.authManager
 }
 
 // IsRunning 判断 Master 是否运行中

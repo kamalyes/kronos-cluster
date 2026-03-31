@@ -12,12 +12,13 @@ package master
 
 import (
 	"context"
+	"testing"
+	"time"
+
 	"github.com/kamalyes/go-distributed/common"
 	"github.com/kamalyes/go-distributed/transport"
 	"github.com/kamalyes/go-logger"
 	"github.com/stretchr/testify/assert"
-	"testing"
-	"time"
 )
 
 type mockMasterTransport struct {
@@ -32,6 +33,8 @@ func newMockMasterTransport() *mockMasterTransport {
 func (m *mockMasterTransport) Start(ctx context.Context) error { return nil }
 func (m *mockMasterTransport) Stop() error                     { return nil }
 func (m *mockMasterTransport) OnRegister(handler func(common.NodeInfo, []byte) (*transport.RegistrationResult, error)) {
+}
+func (m *mockMasterTransport) OnRegisterWithSecret(handler func(common.NodeInfo, string, []byte) (*transport.RegistrationResult, error)) {
 }
 func (m *mockMasterTransport) OnHeartbeat(handler func(string, common.NodeState, []byte) (*transport.HeartbeatResult, error)) {
 }

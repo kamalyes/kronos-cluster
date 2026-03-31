@@ -346,5 +346,7 @@ func CommonNodeToNodeDetail(node NodeInfo) *pb.NodeDetail {
 		Capacity:        capacity,
 		RegisteredAtMs:  node.GetRegisteredAt().UnixMilli(),
 		LastHeartbeatMs: node.GetLastHeartbeat().UnixMilli(),
+		Schedulable:     node.IsSchedulable(),
+		DisableReason:   node.GetDisableReason(),
 	}
 }

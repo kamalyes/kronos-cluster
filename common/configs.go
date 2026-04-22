@@ -14,6 +14,10 @@ import "time"
 
 // MasterConfig Master 节点配置
 type MasterConfig struct {
+	MasterID             string              `json:"master_id" yaml:"master_id"`                           // Master 节点唯一标识
+	Hostname             string              `json:"hostname" yaml:"hostname"`                             // 主机名
+	AdvertiseAddress     string              `json:"advertise_address" yaml:"advertise_address"`           // 对外广播地址（用于多 Master 互联）
+	ClusterName          string              `json:"cluster_name" yaml:"cluster_name"`                     // 集群名称
 	GRPCPort             int                 `json:"grpc_port" yaml:"grpc_port"`                           // gRPC 服务端口
 	HTTPPort             int                 `json:"http_port" yaml:"http_port"`                           // HTTP 服务端口
 	HeartbeatInterval    time.Duration       `json:"heartbeat_interval" yaml:"heartbeat_interval"`         // 心跳检查间隔

@@ -111,6 +111,28 @@ enum ConnectionState {
 // 基础消息
 // =====================================================================
 
+// NodeRole 节点角色
+enum NodeRole {
+  NODE_ROLE_UNSPECIFIED = 0;  // 未指定
+  NODE_ROLE_MASTER = 1;       // Master 控制节点
+  NODE_ROLE_WORKER = 2;       // Worker 工作节点
+}
+
+// TaintEffect 污点效果
+enum TaintEffect {
+  TAINT_EFFECT_UNSPECIFIED = 0;       // 未指定
+  TAINT_EFFECT_NO_SCHEDULE = 1;       // 不调度 - 不会将新任务调度到此节点
+  TAINT_EFFECT_PREFER_NO_SCHEDULE = 2; // 尽量不调度
+  TAINT_EFFECT_NO_EXECUTE = 3;        // 不执行 - 不调度且驱逐已有任务
+}
+
+// Taint 节点污点（类似 Kubernetes Taint）
+message Taint {
+  string key = 1;                 // 污点键
+  string value = 2;               // 污点值
+  TaintEffect effect = 3;         // 污点效果
+}
+
 // BaseNodeInfo 节点基础信息
 // 注册时由 Worker 上报，Master 据此进行节点管理和负载评估
 message BaseNodeInfo {
@@ -123,6 +145,8 @@ message BaseNodeInfo {
   string version = 7;             // Worker 版本号（用于兼容性检查）
   string region = 8;              // 地域标签（用于亲和性调度）
   map<string, string> labels = 9; // 自定义标签（用于灵活的调度策略）
+  NodeRole role = 10;             // 节点角色（master/worker）
+  repeated Taint taints = 11;     // 节点污点列表
 }
 
 // NodeCapacity 节点实时容量信息
@@ -494,6 +518,11 @@ message NodeDetail {
   ConnectionState connection_state = 9; // 连接状态
   bool schedulable = 10;                // 是否可调度（未被 cordon）
   string disable_reason = 11;           // 停用原因（仅当 schedulable=false 时有值）
+  NodeRole role = 12;                   // 节点角色（master/worker）
+  repeated Taint taints = 13;           // 节点污点列表
+  bool is_leader = 14;                  // 是否为 Leader（仅 Master 节点）
+  string cluster_name = 15;             // 所属集群名称（仅 Master 节点）
+  string peer_addr = 16;                // 集群内通信地址（仅 Master 节点）
 }
 
 // ListNodesResponse 列出节点响应
@@ -679,6 +708,62 @@ message AuthResponse {
 }
 
 // =====================================================================
+// 多主多从架构消息
+// =====================================================================
+
+// ListMastersRequest 列出 Master 节点请求
+message ListMastersRequest {
+  bool include_offline = 1;             // 是否包含离线节点
+  map<string, string> label_selector = 2; // 标签选择器
+}
+
+// ListMastersResponse 列出 Master 节点响应
+message ListMastersResponse {
+  repeated NodeDetail masters = 1;      // Master 节点列表
+  int32 total_count = 2;                // Master 节点总数
+  int32 leader_count = 3;               // Leader 节点数
+}
+
+// ListWorkersRequest 列出 Worker 节点请求
+message ListWorkersRequest {
+  repeated NodeState filter_states = 1; // 按状态过滤
+  string region_filter = 2;             // 按区域过滤
+  map<string, string> label_selector = 3; // 标签选择器
+  bool include_offline = 4;             // 是否包含离线节点
+}
+
+// ListWorkersResponse 列出 Worker 节点响应
+message ListWorkersResponse {
+  repeated NodeDetail workers = 1;      // Worker 节点列表
+  int32 total_count = 2;                // Worker 节点总数
+  int32 healthy_count = 3;              // 健康 Worker 节点数
+}
+
+// AddTaintRequest 添加污点请求（类似 kubectl taint nodes <node> key=value:effect）
+message AddTaintRequest {
+  string node_id = 1;                   // 节点 ID
+  Taint taint = 2;                      // 要添加的污点
+}
+
+// AddTaintResponse 添加污点响应
+message AddTaintResponse {
+  bool success = 1;                     // 是否成功
+  string message = 2;                   // 响应描述
+}
+
+// RemoveTaintRequest 移除污点请求
+message RemoveTaintRequest {
+  string node_id = 1;                   // 节点 ID
+  string taint_key = 2;                 // 要移除的污点键
+}
+
+// RemoveTaintResponse 移除污点响应
+message RemoveTaintResponse {
+  bool success = 1;                     // 是否成功
+  string message = 2;                   // 响应描述
+}
+
+// =====================================================================
 // 管理服务定义
 // =====================================================================
 
@@ -730,4 +815,18 @@ service AdminService {
   // Authenticate CLI 客户端认证
   // 通过预共享密钥获取访问令牌
   rpc Authenticate(AuthRequest) returns (AuthResponse);
+
+  // ListMasters 列出 Master 节点（类似 kubectl get nodes -l role=master）
+  // 返回集群中所有 Master 节点信息
+  rpc ListMasters(ListMastersRequest) returns (ListMastersResponse);
+
+  // ListWorkers 列出 Worker 节点（类似 kubectl get nodes -l role=worker）
+  // 返回集群中所有 Worker 节点信息
+  rpc ListWorkers(ListWorkersRequest) returns (ListWorkersResponse);
+
+  // AddTaint 给节点添加污点（类似 kubectl taint）
+  rpc AddTaint(AddTaintRequest) returns (AddTaintResponse);
+
+  // RemoveTaint 移除节点污点
+  rpc RemoveTaint(RemoveTaintRequest) returns (RemoveTaintResponse);
 }

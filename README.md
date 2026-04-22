@@ -20,7 +20,8 @@ graph TB
     subgraph "go-distributed 核心层"
         subgraph "Master 节点"
             M[Master 主控制器]
-            Pool[NodePool 节点池]
+            Pool[NodePool 工作节点池]
+            MPool[MasterPool 主节点池]
             Health[HealthChecker 健康检查]
             Selector[Selector 节点选择]
             TM[TaskManager 任务管理]
@@ -68,6 +69,7 @@ graph TB
     AppN --> W
 
     M --> Pool
+    M --> MPool
     M --> Health
     M --> Selector
     M --> TM
@@ -89,6 +91,7 @@ graph TB
     Transport --> Ext
 
     Pool --> NodeInfo
+    MPool --> NodeInfo
     TM --> Task
     M --> Config
     M --> Token
@@ -104,6 +107,7 @@ graph TB
     style W fill:#2196F3
     style Client fill:#9C27B0
     style TM fill:#FF5722
+    style MPool fill:#FF5722
 ```
 
 ### Master-Worker 通信流程
@@ -189,6 +193,9 @@ stateDiagram-v2
 | 🔌 **接口化传输层** | `MasterTransport` / `WorkerTransport` 接口抽象，支持 gRPC、Redis 双协议 |
 | 🏭 **工厂模式** | `TransportFactory` 统一创建传输层实例，便于依赖注入和扩展 |
 | 🧬 **泛型设计** | `Master[T]` / `Worker[T]` 泛型支持，适配不同业务场景的节点类型 |
+| 🏗️ **多主多从架构** | 支持多 Master 节点集群，`MasterPool` 管理主节点，支持主节点选举 |
+| ⚠️ **污点机制** | 类似 Kubernetes 的 Taint/Toleration，支持 `NoSchedule`/`PreferNoSchedule`/`NoExecute` |
+| 🎭 **节点角色** | 区分 `Master` 和 `Worker` 节点角色，支持分类管理和查询 |
 | 📋 **任务管理** | 完整的任务生命周期管理（提交、调度、下发、追踪、重试、超时） |
 | 💾 **持久化存储** | `TaskStore` 接口抽象，支持 Memory/Redis 双后端，Master 宕机可恢复 |
 | 💓 **健康检查** | 可配置的心跳超时检测、失败计数、自动标记不健康/恢复 |
@@ -200,9 +207,125 @@ stateDiagram-v2
 | 🚫 **节点管理** | EvictNode / DrainNode / DisableNode / EnableNode / GetNodeTop / GetNodeLogs |
 | 🎯 **节点过滤** | 支持区域、标签、资源限制等多维度过滤 |
 | 📦 **统计缓冲** | `StatsBuffer[T]` 泛型缓冲区，批量刷写统计数据 |
-| 🖥️ **CLI 客户端** | kubectl 风格的命令行客户端，支持 ListNodes、GetClusterStats、ListTasks、DrainNode、EvictNode、GetNodeTop、GetNodeLogs 等 |
+| 🖥️ **CLI 客户端** | kubectl 风格的命令行客户端，支持 ListNodes、ListMasters、ListWorkers、GetClusterStats、ListTasks、DrainNode、EvictNode、GetNodeTop、GetNodeLogs、AddTaint、RemoveTaint 等 |
 | 🔄 **自动重连** | 指数退避 + 随机抖动的重连策略，防止惊群效应 |
 | 📈 **集群统计** | 实时收集节点状态、区域分布、资源使用率等统计信息 |
+
+## 🏗️ 多主多从架构和污点机制
+
+### 多主多从架构
+
+系统现在支持**多主多从架构**，类似于 Kubernetes 的多 Master 集群：
+
+#### 核心组件
+
+- **MasterPool**：管理集群中所有 Master 节点，支持注册、注销、选举、心跳检测
+- **MasterNodeInfo**：扩展的 Master 节点信息，包含 `IsLeader`、`ClusterName`、`PeerAddr` 等字段
+- **节点角色**：区分 `NodeRoleMaster` 和 `NodeRoleWorker`，支持分类查询和管理
+
+#### 主要特性
+
+- **主节点自注册**：Master 启动时自动注册到 MasterPool
+- **主节点选举**：支持 Leader 选举机制（基于时间戳和节点ID）
+- **集群感知**：Master 节点可以感知集群中其他 Master 的存在
+- **分类查询**：支持分别查询所有节点、仅 Master 节点、仅 Worker 节点
+
+#### 配置示例
+
+```go
+// Master 配置支持多主架构
+config := &common.MasterConfig{
+    MasterID:          "master-1",
+    Hostname:          "master-1.example.com",
+    AdvertiseAddress:  "192.168.1.100",
+    ClusterName:       "production-cluster",
+    // ... 其他配置
+}
+
+// Master 启动时自动注册
+masterNode := &common.MasterNodeInfo{
+    ID:              config.MasterID,
+    Hostname:        hostname,
+    IP:              config.AdvertiseAddress,
+    GRPCPort:        int32(config.GRPCPort),
+    Version:         common.Version,
+    State:           common.NodeStateRunning,
+    LastHeartbeat:   time.Now(),
+    RegisteredAt:    time.Now(),
+    Schedulable:     false, // 主节点默认不可调度任务
+    Taints:          []common.Taint{
+        {
+            Key:    "node-role.kubernetes.io/master",
+            Effect: common.TaintEffectNoSchedule,
+        },
+    },
+}
+```
+
+### 污点机制
+
+系统实现了类似 Kubernetes 的**污点（Taint）机制**，用于控制任务调度：
+
+#### 污点效果
+
+| 效果 | 说明 |
+|:-----|:-----|
+| **NoSchedule** | 不允许新任务调度到该节点 |
+| **PreferNoSchedule** | 尽量避免调度新任务到该节点 |
+| **NoExecute** | 不允许新任务调度，且驱逐已有任务 |
+
+#### 污点操作
+
+```go
+// 添加污点
+_, err = client.AddTaint(context.Background(), &pb.AddTaintRequest{
+    NodeId: "worker-1",
+    Taint: &pb.Taint{
+        Key:    "maintenance",
+        Value:  "true",
+        Effect: pb.TaintEffect_TAINT_EFFECT_NO_SCHEDULE,
+    },
+})
+
+// 移除污点
+_, err = client.RemoveTaint(context.Background(), &pb.RemoveTaintRequest{
+    NodeId:   "worker-1",
+    TaintKey: "maintenance",
+})
+```
+
+#### 内置污点
+
+- **`node-role.kubernetes.io/master:NoSchedule`**：Master 节点默认污点，防止任务调度到控制平面
+- **`node.kubernetes.io/unreachable:NoExecute`**：节点不可达时的自动污点
+- **`node.kubernetes.io/not-ready:NoExecute`**：节点未就绪时的自动污点
+
+### CLI 命令扩展
+
+新增的 CLI 命令支持：
+
+```bash
+# 列出所有节点（Master + Worker）
+go run examples/cli.go get nodes
+
+# 只列出 Master 节点
+go run examples/cli.go get masters
+
+# 只列出 Worker 节点
+go run examples/cli.go get workers
+
+# 给节点添加污点
+go run examples/cli.go taint add worker-1 maintenance=true:NoSchedule
+
+# 移除节点污点
+go run examples/cli.go taint remove worker-1 maintenance
+```
+
+### 兼容性说明
+
+- **向后兼容**：现有单主架构代码无需修改即可正常工作
+- **平滑升级**：支持从单主架构平滑升级到多主架构
+- **配置迁移**：新增的配置字段均为可选，现有配置保持兼容
 
 ## 📦 快速开始
 
@@ -402,8 +525,46 @@ func main() {
 
     log.InfoKV("Total nodes", "count", resp.TotalCount)
     for _, node := range resp.Nodes {
-        log.InfoKV("Node info", "id", node.NodeInfo.NodeId, "state", node.State, "hostname", node.NodeInfo.Hostname)
+        log.InfoKV("Node info", "id", node.NodeInfo.NodeId, "state", node.State, "hostname", node.NodeInfo.Hostname, "role", node.Role)
     }
+
+    // 只列出 Master 节点（类似 kubectl get nodes -l node-role.kubernetes.io/master=true）
+    masters, err := client.ListMasters(context.Background(), &pb.ListMastersRequest{})
+    if err != nil {
+        log.Fatal(err.Error())
+    }
+
+    log.InfoKV("Total masters", "count", masters.TotalCount)
+    for _, master := range masters.Masters {
+        log.InfoKV("Master info", "id", master.NodeInfo.NodeId, "is_leader", master.IsLeader, "cluster", master.ClusterName)
+    }
+
+    // 只列出 Worker 节点（类似 kubectl get nodes -l node-role.kubernetes.io/worker=true）
+    workers, err := client.ListWorkers(context.Background(), &pb.ListWorkersRequest{})
+    if err != nil {
+        log.Fatal(err.Error())
+    }
+
+    log.InfoKV("Total workers", "count", workers.TotalCount)
+    for _, worker := range workers.Workers {
+        log.InfoKV("Worker info", "id", worker.NodeInfo.NodeId, "state", worker.State, "region", worker.NodeInfo.Region)
+    }
+
+    // 给节点添加污点（类似 kubectl taint node worker-1 key=value:NoSchedule）
+    _, err = client.AddTaint(context.Background(), &pb.AddTaintRequest{
+        NodeId: "worker-1",
+        Taint: &pb.Taint{
+            Key: "maintenance",
+            Value: "true",
+            Effect: pb.TaintEffect_TAINT_EFFECT_NO_SCHEDULE,
+        },
+    })
+
+    // 移除节点污点（类似 kubectl taint node worker-1 maintenance:NoSchedule-）
+    _, err = client.RemoveTaint(context.Background(), &pb.RemoveTaintRequest{
+        NodeId: "worker-1",
+        TaintKey: "maintenance",
+    })
 
     // 获取集群统计（类似 kubectl top nodes）
     stats, err := client.GetClusterStats(context.Background(), &pb.ClusterStatsRequest{

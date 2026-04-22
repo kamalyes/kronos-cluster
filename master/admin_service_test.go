@@ -21,20 +21,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func newTestAdminService() (*AdminService, *NodePool[*common.BaseNodeInfo], TaskStore) {
+func newTestAdminService() (*AdminService, *NodePool[*common.BaseNodeInfo], *MasterPool, TaskStore) {
 	log := logger.NewEmptyLogger()
 	selector := NewSelector[*common.BaseNodeInfo](common.SelectStrategyLeastLoaded, nil)
 	config := &common.MasterConfig{}
 	pool := NewNodePool(selector, log, config)
+	masterPool := NewMasterPool(log)
 	store := NewMemoryTaskStore(log)
 	adapter := &nodePoolAdapter[*common.BaseNodeInfo]{pool: pool}
 	authManager := common.NewAuthManager(config)
-	svc := NewAdminService(adapter, store, log, authManager)
-	return svc, pool, store
+	svc := NewAdminService(adapter, masterPool, store, log, authManager)
+	return svc, pool, masterPool, store
 }
 
 func TestAdminServiceListNodesEmpty(t *testing.T) {
-	svc, _, _ := newTestAdminService()
+	svc, _, _, _ := newTestAdminService()
 
 	resp, err := svc.ListNodes(context.Background(), &pb.ListNodesRequest{})
 	assert.NoError(t, err)
@@ -43,7 +44,7 @@ func TestAdminServiceListNodesEmpty(t *testing.T) {
 }
 
 func TestAdminServiceListNodesAll(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	pool.Register(newTestBaseNode())
 	pool.Register(newTestBaseNode())
@@ -55,7 +56,7 @@ func TestAdminServiceListNodesAll(t *testing.T) {
 }
 
 func TestAdminServiceListNodesExcludeOffline(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node1 := newTestBaseNode()
 	pool.Register(node1)
@@ -73,7 +74,7 @@ func TestAdminServiceListNodesExcludeOffline(t *testing.T) {
 }
 
 func TestAdminServiceListNodesFilterByState(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node1 := newTestBaseNode()
 	pool.Register(node1)
@@ -92,7 +93,7 @@ func TestAdminServiceListNodesFilterByState(t *testing.T) {
 }
 
 func TestAdminServiceListNodesFilterByRegion(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node1 := newTestBaseNode()
 	node1.Region = "shanghai"
@@ -111,7 +112,7 @@ func TestAdminServiceListNodesFilterByRegion(t *testing.T) {
 }
 
 func TestAdminServiceGetNodeInfo(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node := newTestBaseNode()
 	node.Hostname = "test-host"
@@ -125,7 +126,7 @@ func TestAdminServiceGetNodeInfo(t *testing.T) {
 }
 
 func TestAdminServiceGetNodeInfoNotFound(t *testing.T) {
-	svc, _, _ := newTestAdminService()
+	svc, _, _, _ := newTestAdminService()
 
 	resp, err := svc.GetNodeInfo(context.Background(), &pb.GetNodeInfoRequest{NodeId: "nonexistent"})
 	assert.Error(t, err)
@@ -133,7 +134,7 @@ func TestAdminServiceGetNodeInfoNotFound(t *testing.T) {
 }
 
 func TestAdminServiceGetClusterStats(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node1 := newTestBaseNode()
 	pool.Register(node1)
@@ -151,7 +152,7 @@ func TestAdminServiceGetClusterStats(t *testing.T) {
 }
 
 func TestAdminServiceGetClusterStatsWithResourceStats(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node := newTestBaseNode()
 	pool.Register(node)
@@ -167,7 +168,7 @@ func TestAdminServiceGetClusterStatsWithResourceStats(t *testing.T) {
 }
 
 func TestAdminServiceGetClusterStatsWithTaskStats(t *testing.T) {
-	svc, pool, store := newTestAdminService()
+	svc, pool, _, store := newTestAdminService()
 
 	pool.Register(newTestBaseNode())
 
@@ -186,7 +187,7 @@ func TestAdminServiceGetClusterStatsWithTaskStats(t *testing.T) {
 }
 
 func TestAdminServiceListTasksEmpty(t *testing.T) {
-	svc, _, _ := newTestAdminService()
+	svc, _, _, _ := newTestAdminService()
 
 	resp, err := svc.ListTasks(context.Background(), &pb.ListTasksRequest{})
 	assert.NoError(t, err)
@@ -195,7 +196,7 @@ func TestAdminServiceListTasksEmpty(t *testing.T) {
 }
 
 func TestAdminServiceListTasksAll(t *testing.T) {
-	svc, _, store := newTestAdminService()
+	svc, _, _, store := newTestAdminService()
 
 	task1 := common.NewTaskInfo(newTestNodeID(), common.TaskTypeCommand, []byte("test"))
 	task2 := common.NewTaskInfo(newTestNodeID(), common.TaskTypeScript, []byte("test"))
@@ -208,7 +209,7 @@ func TestAdminServiceListTasksAll(t *testing.T) {
 }
 
 func TestAdminServiceListTasksFilterByState(t *testing.T) {
-	svc, _, store := newTestAdminService()
+	svc, _, _, store := newTestAdminService()
 
 	task1 := common.NewTaskInfo(newTestNodeID(), common.TaskTypeCommand, []byte("test"))
 	store.SaveTask(context.Background(), task1)
@@ -230,7 +231,7 @@ func TestAdminServiceListTasksFilterByState(t *testing.T) {
 }
 
 func TestAdminServiceListTasksFilterByType(t *testing.T) {
-	svc, _, store := newTestAdminService()
+	svc, _, _, store := newTestAdminService()
 
 	task1 := common.NewTaskInfo(newTestNodeID(), common.TaskTypeCommand, []byte("test"))
 	task2 := common.NewTaskInfo(newTestNodeID(), common.TaskTypeScript, []byte("test"))
@@ -246,7 +247,7 @@ func TestAdminServiceListTasksFilterByType(t *testing.T) {
 }
 
 func TestAdminServiceListTasksByNode(t *testing.T) {
-	svc, _, store := newTestAdminService()
+	svc, _, _, store := newTestAdminService()
 
 	nodeID := newTestNodeID()
 
@@ -267,7 +268,7 @@ func TestAdminServiceListTasksByNode(t *testing.T) {
 }
 
 func TestAdminServiceDrainNode(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node := newTestBaseNode()
 	pool.Register(node)
@@ -287,7 +288,7 @@ func TestAdminServiceDrainNode(t *testing.T) {
 }
 
 func TestAdminServiceDrainNodeNotFound(t *testing.T) {
-	svc, _, _ := newTestAdminService()
+	svc, _, _, _ := newTestAdminService()
 
 	resp, err := svc.DrainNode(context.Background(), &pb.DrainNodeRequest{NodeId: "nonexistent"})
 	assert.Error(t, err)
@@ -295,7 +296,7 @@ func TestAdminServiceDrainNodeNotFound(t *testing.T) {
 }
 
 func TestAdminServiceEvictNode(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node := newTestBaseNode()
 	pool.Register(node)
@@ -317,7 +318,7 @@ func TestAdminServiceEvictNode(t *testing.T) {
 }
 
 func TestAdminServiceEvictNodeNotFound(t *testing.T) {
-	svc, _, _ := newTestAdminService()
+	svc, _, _, _ := newTestAdminService()
 
 	resp, err := svc.EvictNode(context.Background(), &pb.EvictNodeRequest{NodeId: "nonexistent"})
 	assert.Error(t, err)
@@ -325,7 +326,7 @@ func TestAdminServiceEvictNodeNotFound(t *testing.T) {
 }
 
 func TestAdminServiceDisableNode(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node := newTestBaseNode()
 	pool.Register(node)
@@ -345,7 +346,7 @@ func TestAdminServiceDisableNode(t *testing.T) {
 }
 
 func TestAdminServiceDisableNodeAlreadyDisabled(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node := newTestBaseNode()
 	pool.Register(node)
@@ -360,7 +361,7 @@ func TestAdminServiceDisableNodeAlreadyDisabled(t *testing.T) {
 }
 
 func TestAdminServiceDisableNodeNotFound(t *testing.T) {
-	svc, _, _ := newTestAdminService()
+	svc, _, _, _ := newTestAdminService()
 
 	resp, err := svc.DisableNode(context.Background(), &pb.DisableNodeRequest{NodeId: "nonexistent"})
 	assert.Error(t, err)
@@ -368,7 +369,7 @@ func TestAdminServiceDisableNodeNotFound(t *testing.T) {
 }
 
 func TestAdminServiceEnableNode(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node := newTestBaseNode()
 	pool.Register(node)
@@ -387,7 +388,7 @@ func TestAdminServiceEnableNode(t *testing.T) {
 }
 
 func TestAdminServiceEnableNodeAlreadyEnabled(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node := newTestBaseNode()
 	pool.Register(node)
@@ -401,7 +402,7 @@ func TestAdminServiceEnableNodeAlreadyEnabled(t *testing.T) {
 }
 
 func TestAdminServiceEnableNodeNotFound(t *testing.T) {
-	svc, _, _ := newTestAdminService()
+	svc, _, _, _ := newTestAdminService()
 
 	resp, err := svc.EnableNode(context.Background(), &pb.EnableNodeRequest{NodeId: "nonexistent"})
 	assert.Error(t, err)
@@ -409,7 +410,7 @@ func TestAdminServiceEnableNodeNotFound(t *testing.T) {
 }
 
 func TestAdminServiceGetNodeTop(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node := newTestBaseNode()
 	pool.Register(node)
@@ -435,7 +436,7 @@ func TestAdminServiceGetNodeTop(t *testing.T) {
 }
 
 func TestAdminServiceGetNodeTopByNodeId(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node1 := newTestBaseNode()
 	pool.Register(node1)
@@ -452,7 +453,7 @@ func TestAdminServiceGetNodeTopByNodeId(t *testing.T) {
 }
 
 func TestAdminServiceGetNodeTopNodeNotFound(t *testing.T) {
-	svc, _, _ := newTestAdminService()
+	svc, _, _, _ := newTestAdminService()
 
 	resp, err := svc.GetNodeTop(context.Background(), &pb.GetNodeTopRequest{
 		NodeId: "nonexistent",
@@ -462,7 +463,7 @@ func TestAdminServiceGetNodeTopNodeNotFound(t *testing.T) {
 }
 
 func TestAdminServiceGetNodeLogs(t *testing.T) {
-	svc, pool, _ := newTestAdminService()
+	svc, pool, _, _ := newTestAdminService()
 
 	node := newTestBaseNode()
 	pool.Register(node)
@@ -479,7 +480,7 @@ func TestAdminServiceGetNodeLogs(t *testing.T) {
 }
 
 func TestAdminServiceGetNodeLogsNotFound(t *testing.T) {
-	svc, _, _ := newTestAdminService()
+	svc, _, _, _ := newTestAdminService()
 
 	resp, err := svc.GetNodeLogs(context.Background(), &pb.GetNodeLogsRequest{
 		NodeId: "nonexistent",
@@ -489,7 +490,7 @@ func TestAdminServiceGetNodeLogsNotFound(t *testing.T) {
 }
 
 func TestAdminServiceAuthenticateDisabled(t *testing.T) {
-	svc, _, _ := newTestAdminService()
+	svc, _, _, _ := newTestAdminService()
 
 	resp, err := svc.Authenticate(context.Background(), &pb.AuthRequest{
 		Secret:   "any",
@@ -509,10 +510,11 @@ func TestAdminServiceAuthenticateWithAuth(t *testing.T) {
 		TokenIssuer:     "test",
 	}
 	pool := NewNodePool(selector, log, config)
+	masterPool := NewMasterPool(log)
 	store := NewMemoryTaskStore(log)
 	adapter := &nodePoolAdapter[*common.BaseNodeInfo]{pool: pool}
 	authManager := common.NewAuthManager(config)
-	svc := NewAdminService(adapter, store, log, authManager)
+	svc := NewAdminService(adapter, masterPool, store, log, authManager)
 
 	resp, err := svc.Authenticate(context.Background(), &pb.AuthRequest{
 		Secret:   "admin-secret",
@@ -533,10 +535,11 @@ func TestAdminServiceAuthenticateWrongSecret(t *testing.T) {
 		TokenIssuer:     "test",
 	}
 	pool := NewNodePool(selector, log, config)
+	masterPool := NewMasterPool(log)
 	store := NewMemoryTaskStore(log)
 	adapter := &nodePoolAdapter[*common.BaseNodeInfo]{pool: pool}
 	authManager := common.NewAuthManager(config)
-	svc := NewAdminService(adapter, store, log, authManager)
+	svc := NewAdminService(adapter, masterPool, store, log, authManager)
 
 	resp, err := svc.Authenticate(context.Background(), &pb.AuthRequest{
 		Secret:   "wrong-secret",

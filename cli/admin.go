@@ -129,3 +129,43 @@ func (c *Client) GetNodeLogs(ctx context.Context, req *pb.GetNodeLogsRequest) (*
 	}
 	return resp, nil
 }
+
+// ListMasters 列出 Master 节点（类似 kubectl get nodes -l role=master）
+func (c *Client) ListMasters(ctx context.Context, req *pb.ListMastersRequest) (*pb.ListMastersResponse, error) {
+	resp, err := c.client.ListMasters(c.withAuth(ctx), req)
+	if err != nil {
+		c.handleRPCErr(err)
+		return nil, fmt.Errorf("failed to list masters: %w", err)
+	}
+	return resp, nil
+}
+
+// ListWorkers 列出 Worker 节点（类似 kubectl get nodes -l role=worker）
+func (c *Client) ListWorkers(ctx context.Context, req *pb.ListWorkersRequest) (*pb.ListWorkersResponse, error) {
+	resp, err := c.client.ListWorkers(c.withAuth(ctx), req)
+	if err != nil {
+		c.handleRPCErr(err)
+		return nil, fmt.Errorf("failed to list workers: %w", err)
+	}
+	return resp, nil
+}
+
+// AddTaint 给节点添加污点（类似 kubectl taint）
+func (c *Client) AddTaint(ctx context.Context, req *pb.AddTaintRequest) (*pb.AddTaintResponse, error) {
+	resp, err := c.client.AddTaint(c.withAuth(ctx), req)
+	if err != nil {
+		c.handleRPCErr(err)
+		return nil, fmt.Errorf("failed to add taint: %w", err)
+	}
+	return resp, nil
+}
+
+// RemoveTaint 移除节点污点
+func (c *Client) RemoveTaint(ctx context.Context, req *pb.RemoveTaintRequest) (*pb.RemoveTaintResponse, error) {
+	resp, err := c.client.RemoveTaint(c.withAuth(ctx), req)
+	if err != nil {
+		c.handleRPCErr(err)
+		return nil, fmt.Errorf("failed to remove taint: %w", err)
+	}
+	return resp, nil
+}

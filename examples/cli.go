@@ -119,6 +119,10 @@ func handleGetCommand(ctx context.Context, client *cli.Client, log logger.ILogge
 	switch resource {
 	case "nodes":
 		handleGetNodes(ctx, client, log)
+	case "workers":
+		handleGetWorkers(ctx, client, log)
+	case "masters":
+		handleGetMasters(ctx, client, log)
 	case "tasks":
 		handleGetTasks(ctx, client, log)
 	case "stats":
@@ -143,12 +147,84 @@ func handleGetNodes(ctx context.Context, client *cli.Client, log logger.ILogger)
 		if node.NodeInfo != nil {
 			nodeId = node.NodeInfo.NodeId
 		}
+		role := node.Role.String()
+		taints := formatTaints(node.Taints)
 		log.InfoKV("Node",
 			"node_id", nodeId,
+			"role", role,
 			"state", node.State.String(),
 			"schedulable", node.Schedulable,
+			"taints", taints,
 			"active_tasks", node.ActiveTaskCount)
 	}
+}
+
+func handleGetMasters(ctx context.Context, client *cli.Client, log logger.ILogger) {
+	resp, err := client.ListMasters(ctx, &pb.ListMastersRequest{
+		IncludeOffline: true,
+	})
+	if err != nil {
+		log.ErrorKV("Failed to list masters", "error", err.Error())
+		return
+	}
+	log.InfoKV("Masters", "count", len(resp.Masters), "leaders", resp.LeaderCount)
+	for _, master := range resp.Masters {
+		var nodeId string
+		if master.NodeInfo != nil {
+			nodeId = master.NodeInfo.NodeId
+		}
+		taints := formatTaints(master.Taints)
+		log.InfoKV("Master",
+			"node_id", nodeId,
+			"is_leader", master.IsLeader,
+			"cluster", master.ClusterName,
+			"state", master.State.String(),
+			"schedulable", master.Schedulable,
+			"taints", taints)
+	}
+}
+
+func handleGetWorkers(ctx context.Context, client *cli.Client, log logger.ILogger) {
+	resp, err := client.ListWorkers(ctx, &pb.ListWorkersRequest{
+		IncludeOffline: true,
+	})
+	if err != nil {
+		log.ErrorKV("Failed to list workers", "error", err.Error())
+		return
+	}
+	log.InfoKV("Workers", "count", len(resp.Workers), "healthy", resp.HealthyCount)
+	for _, worker := range resp.Workers {
+		var nodeId string
+		if worker.NodeInfo != nil {
+			nodeId = worker.NodeInfo.NodeId
+		}
+		taints := formatTaints(worker.Taints)
+		log.InfoKV("Worker",
+			"node_id", nodeId,
+			"state", worker.State.String(),
+			"schedulable", worker.Schedulable,
+			"taints", taints,
+			"active_tasks", worker.ActiveTaskCount)
+	}
+}
+
+func formatTaints(taints []*pb.Taint) string {
+	if len(taints) == 0 {
+		return "<none>"
+	}
+	result := ""
+	for i, t := range taints {
+		if i > 0 {
+			result += ", "
+		}
+		effect := t.Effect.String()
+		if t.Value != "" {
+			result += fmt.Sprintf("%s=%s:%s", t.Key, t.Value, effect)
+		} else {
+			result += fmt.Sprintf("%s:%s", t.Key, effect)
+		}
+	}
+	return result
 }
 
 func handleGetTasks(ctx context.Context, client *cli.Client, log logger.ILogger) {
@@ -185,7 +261,9 @@ func handleNodeTop(ctx context.Context, client *cli.Client, log logger.ILogger) 
 
 func printUsage() {
 	fmt.Println("Usage:")
-	fmt.Println("  cli get nodes         List all nodes in the cluster")
+	fmt.Println("  cli get nodes         List all nodes (masters + workers)")
+	fmt.Println("  cli get masters       List master nodes only")
+	fmt.Println("  cli get workers       List worker nodes only")
 	fmt.Println("  cli get tasks         List all tasks")
 	fmt.Println("  cli get stats         Get cluster statistics")
 	fmt.Println("")

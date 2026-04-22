@@ -34,6 +34,10 @@ func main() {
 	}
 
 	m, err := master.NewMaster[*common.BaseNodeInfo](&common.MasterConfig{
+		MasterID:             "master-001",
+		Hostname:             "master-node-1",
+		AdvertiseAddress:     "127.0.0.1",
+		ClusterName:          "go-distributed-cluster",
 		GRPCPort:             9001,
 		TransportType:        common.TransportTypeGRPC,
 		HeartbeatInterval:    5 * time.Second,
@@ -44,8 +48,9 @@ func main() {
 		TokenExpiration:      24 * time.Hour,
 		GenerateConfigFile:   true,
 		ControlPlane: &common.ControlPlaneConfig{
-			ServerAddr: "localhost:9001",
-			EnableAuth: true,
+			ServerAddr:  "localhost:9001",
+			EnableAuth:  true,
+			ClusterName: "go-distributed-cluster",
 		},
 	}, converter, master.NewMemoryTaskStore(log), log)
 	if err != nil {

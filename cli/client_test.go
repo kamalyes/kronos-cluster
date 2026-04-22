@@ -13,6 +13,10 @@ package cli
 import (
 	"context"
 	"fmt"
+	"net"
+	"testing"
+	"time"
+
 	"github.com/kamalyes/go-distributed/common"
 	"github.com/kamalyes/go-distributed/master"
 	pb "github.com/kamalyes/go-distributed/proto"
@@ -20,9 +24,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
-	"net"
-	"testing"
-	"time"
 )
 
 type MasterCLISuite struct {
@@ -93,8 +94,9 @@ func (s *MasterCLISuite) TestPing() {
 func (s *MasterCLISuite) TestListNodesEmpty() {
 	resp, err := s.client.ListNodes(context.Background(), &pb.ListNodesRequest{})
 	assert.NoError(s.T(), err)
-	assert.Empty(s.T(), resp.Nodes)
-	assert.Equal(s.T(), int32(0), resp.TotalCount)
+	assert.Len(s.T(), resp.Nodes, 1)
+	assert.Equal(s.T(), int32(1), resp.TotalCount)
+	assert.Equal(s.T(), pb.NodeRole_NODE_ROLE_MASTER, resp.Nodes[0].Role)
 }
 
 func (s *MasterCLISuite) TestGetClusterStatsEmpty() {

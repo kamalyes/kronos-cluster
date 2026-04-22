@@ -675,6 +675,10 @@ const (
 	AdminService_GetNodeTop_FullMethodName      = "/distributed.AdminService/GetNodeTop"
 	AdminService_GetNodeLogs_FullMethodName     = "/distributed.AdminService/GetNodeLogs"
 	AdminService_Authenticate_FullMethodName    = "/distributed.AdminService/Authenticate"
+	AdminService_ListMasters_FullMethodName     = "/distributed.AdminService/ListMasters"
+	AdminService_ListWorkers_FullMethodName     = "/distributed.AdminService/ListWorkers"
+	AdminService_AddTaint_FullMethodName        = "/distributed.AdminService/AddTaint"
+	AdminService_RemoveTaint_FullMethodName     = "/distributed.AdminService/RemoveTaint"
 )
 
 // AdminServiceClient is the client API for AdminService service.
@@ -719,6 +723,16 @@ type AdminServiceClient interface {
 	// Authenticate CLI 客户端认证
 	// 通过预共享密钥获取访问令牌
 	Authenticate(ctx context.Context, in *AuthRequest, opts ...grpc.CallOption) (*AuthResponse, error)
+	// ListMasters 列出 Master 节点（类似 kubectl get nodes -l role=master）
+	// 返回集群中所有 Master 节点信息
+	ListMasters(ctx context.Context, in *ListMastersRequest, opts ...grpc.CallOption) (*ListMastersResponse, error)
+	// ListWorkers 列出 Worker 节点（类似 kubectl get nodes -l role=worker）
+	// 返回集群中所有 Worker 节点信息
+	ListWorkers(ctx context.Context, in *ListWorkersRequest, opts ...grpc.CallOption) (*ListWorkersResponse, error)
+	// AddTaint 给节点添加污点（类似 kubectl taint）
+	AddTaint(ctx context.Context, in *AddTaintRequest, opts ...grpc.CallOption) (*AddTaintResponse, error)
+	// RemoveTaint 移除节点污点
+	RemoveTaint(ctx context.Context, in *RemoveTaintRequest, opts ...grpc.CallOption) (*RemoveTaintResponse, error)
 }
 
 type adminServiceClient struct {
@@ -839,6 +853,46 @@ func (c *adminServiceClient) Authenticate(ctx context.Context, in *AuthRequest, 
 	return out, nil
 }
 
+func (c *adminServiceClient) ListMasters(ctx context.Context, in *ListMastersRequest, opts ...grpc.CallOption) (*ListMastersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListMastersResponse)
+	err := c.cc.Invoke(ctx, AdminService_ListMasters_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) ListWorkers(ctx context.Context, in *ListWorkersRequest, opts ...grpc.CallOption) (*ListWorkersResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ListWorkersResponse)
+	err := c.cc.Invoke(ctx, AdminService_ListWorkers_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) AddTaint(ctx context.Context, in *AddTaintRequest, opts ...grpc.CallOption) (*AddTaintResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AddTaintResponse)
+	err := c.cc.Invoke(ctx, AdminService_AddTaint_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) RemoveTaint(ctx context.Context, in *RemoveTaintRequest, opts ...grpc.CallOption) (*RemoveTaintResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(RemoveTaintResponse)
+	err := c.cc.Invoke(ctx, AdminService_RemoveTaint_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AdminServiceServer is the server API for AdminService service.
 // All implementations must embed UnimplementedAdminServiceServer
 // for forward compatibility.
@@ -881,6 +935,16 @@ type AdminServiceServer interface {
 	// Authenticate CLI 客户端认证
 	// 通过预共享密钥获取访问令牌
 	Authenticate(context.Context, *AuthRequest) (*AuthResponse, error)
+	// ListMasters 列出 Master 节点（类似 kubectl get nodes -l role=master）
+	// 返回集群中所有 Master 节点信息
+	ListMasters(context.Context, *ListMastersRequest) (*ListMastersResponse, error)
+	// ListWorkers 列出 Worker 节点（类似 kubectl get nodes -l role=worker）
+	// 返回集群中所有 Worker 节点信息
+	ListWorkers(context.Context, *ListWorkersRequest) (*ListWorkersResponse, error)
+	// AddTaint 给节点添加污点（类似 kubectl taint）
+	AddTaint(context.Context, *AddTaintRequest) (*AddTaintResponse, error)
+	// RemoveTaint 移除节点污点
+	RemoveTaint(context.Context, *RemoveTaintRequest) (*RemoveTaintResponse, error)
 	mustEmbedUnimplementedAdminServiceServer()
 }
 
@@ -923,6 +987,18 @@ func (UnimplementedAdminServiceServer) GetNodeLogs(context.Context, *GetNodeLogs
 }
 func (UnimplementedAdminServiceServer) Authenticate(context.Context, *AuthRequest) (*AuthResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method Authenticate not implemented")
+}
+func (UnimplementedAdminServiceServer) ListMasters(context.Context, *ListMastersRequest) (*ListMastersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListMasters not implemented")
+}
+func (UnimplementedAdminServiceServer) ListWorkers(context.Context, *ListWorkersRequest) (*ListWorkersResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ListWorkers not implemented")
+}
+func (UnimplementedAdminServiceServer) AddTaint(context.Context, *AddTaintRequest) (*AddTaintResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AddTaint not implemented")
+}
+func (UnimplementedAdminServiceServer) RemoveTaint(context.Context, *RemoveTaintRequest) (*RemoveTaintResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method RemoveTaint not implemented")
 }
 func (UnimplementedAdminServiceServer) mustEmbedUnimplementedAdminServiceServer() {}
 func (UnimplementedAdminServiceServer) testEmbeddedByValue()                      {}
@@ -1143,6 +1219,78 @@ func _AdminService_Authenticate_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminService_ListMasters_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListMastersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).ListMasters(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_ListMasters_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).ListMasters(ctx, req.(*ListMastersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_ListWorkers_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListWorkersRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).ListWorkers(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_ListWorkers_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).ListWorkers(ctx, req.(*ListWorkersRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_AddTaint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AddTaintRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).AddTaint(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_AddTaint_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).AddTaint(ctx, req.(*AddTaintRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_RemoveTaint_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(RemoveTaintRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).RemoveTaint(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_RemoveTaint_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).RemoveTaint(ctx, req.(*RemoveTaintRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AdminService_ServiceDesc is the grpc.ServiceDesc for AdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1193,6 +1341,22 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Authenticate",
 			Handler:    _AdminService_Authenticate_Handler,
+		},
+		{
+			MethodName: "ListMasters",
+			Handler:    _AdminService_ListMasters_Handler,
+		},
+		{
+			MethodName: "ListWorkers",
+			Handler:    _AdminService_ListWorkers_Handler,
+		},
+		{
+			MethodName: "AddTaint",
+			Handler:    _AdminService_AddTaint_Handler,
+		},
+		{
+			MethodName: "RemoveTaint",
+			Handler:    _AdminService_RemoveTaint_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

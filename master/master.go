@@ -26,7 +26,8 @@ import (
 // Master 泛型主控制器 - 管理分布式节点生命周期和任务调度
 type Master[T common.NodeInfo] struct {
 	config        *common.MasterConfig             // Master 配置
-	pool          *NodePool[T]                     // 节点池
+	pool          *NodePool[T]                     // Worker 节点池
+	masterPool    *MasterPool                      // Master 节点池
 	health        *HealthChecker[T]                // 健康检查器
 	taskManager   *TaskManager                     // 任务管理器
 	adminService  *AdminService                    // 管理服务
@@ -113,8 +114,10 @@ func NewMaster[T common.NodeInfo](
 
 	adapter := &nodePoolAdapter[T]{pool: pool}
 
+	masterPool := NewMasterPool(log)
+
 	taskManager := NewTaskManager(adapter, masterTransport, store, log, config.CandidateNodeCount)
-	adminService := NewAdminService(adapter, store, log, authManager)
+	adminService := NewAdminService(adapter, masterPool, store, log, authManager)
 
 	if grpcTransport, ok := masterTransport.(*transport.GRPCMasterTransport); ok {
 		grpcTransport.RegisterAdminService(adminService)
@@ -123,6 +126,7 @@ func NewMaster[T common.NodeInfo](
 	return &Master[T]{
 		config:        config,
 		pool:          pool,
+		masterPool:    masterPool,
 		health:        health,
 		taskManager:   taskManager,
 		adminService:  adminService,
@@ -158,6 +162,7 @@ func (m *Master[T]) Start(ctx context.Context) error {
 
 	// 清空节点池，避免旧节点信息导致Worker无法重新注册
 	m.pool.Clear()
+	m.masterPool.Clear()
 
 	// 清空 Worker 连接，避免使用旧的连接
 	if grpcTransport, ok := m.transport.(*transport.GRPCMasterTransport); ok {
@@ -170,6 +175,26 @@ func (m *Master[T]) Start(ctx context.Context) error {
 
 	// 等待 gRPC 服务器完全启动
 	time.Sleep(500 * time.Millisecond)
+
+	// Master 自注册到 MasterPool
+	masterNode := common.NewMasterNodeInfo(
+		m.config.MasterID,
+		m.config.Hostname,
+		m.config.AdvertiseAddress,
+		int32(m.config.GRPCPort),
+		m.config.ClusterName,
+	)
+	masterNode.Version = "1.0.0"
+	masterNode.LastHeartbeat = time.Now()
+	masterNode.RegisteredAt = time.Now()
+	if err := m.masterPool.Register(masterNode); err != nil {
+		m.logger.WarnKV("Failed to register master node to master pool", "error", err)
+	} else {
+		m.logger.InfoKV("Master node self-registered",
+			"node_id", masterNode.GetID(),
+			"hostname", masterNode.GetHostname(),
+			"is_leader", masterNode.IsLeader)
+	}
 
 	m.setupTransportHandlers()
 
@@ -287,6 +312,11 @@ func (m *Master[T]) setupTransportHandlers() {
 // GetPool 获取节点池
 func (m *Master[T]) GetPool() *NodePool[T] {
 	return m.pool
+}
+
+// GetMasterPool 获取 Master 节点池
+func (m *Master[T]) GetMasterPool() *MasterPool {
+	return m.masterPool
 }
 
 // GetHealthChecker 获取健康检查器

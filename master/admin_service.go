@@ -39,6 +39,7 @@ import (
 type AdminService struct {
 	pb.UnimplementedAdminServiceServer
 	pool        NodeProvider
+	masterPool  *MasterPool
 	store       TaskStore
 	logger      logger.ILogger
 	authManager *common.AuthManager
@@ -47,12 +48,14 @@ type AdminService struct {
 // NewAdminService 创建管理服务
 func NewAdminService(
 	pool NodeProvider,
+	masterPool *MasterPool,
 	store TaskStore,
 	log logger.ILogger,
 	authManager *common.AuthManager,
 ) *AdminService {
 	return &AdminService{
 		pool:        pool,
+		masterPool:  masterPool,
 		store:       store,
 		logger:      log,
 		authManager: authManager,
@@ -98,22 +101,31 @@ func extractTokenFromContext(ctx context.Context) (string, error) {
 }
 
 // ListNodes 列出节点（类似 kubectl get nodes）
+// 返回所有节点，包括 Master 和 Worker
 func (s *AdminService) ListNodes(ctx context.Context, req *pb.ListNodesRequest) (*pb.ListNodesResponse, error) {
 	if err := s.validateAuth(ctx); err != nil {
 		return nil, err
 	}
 
 	nodeFilter := common.NewNodeFilterFromRequest(req)
-	filtered := nodeFilter.FilterNodes(s.pool.GetAll())
 
-	pbNodes := make([]*pb.NodeDetail, 0, len(filtered))
-	for _, node := range filtered {
-		pbNodes = append(pbNodes, common.CommonNodeToNodeDetail(node))
+	workerNodes := s.pool.GetAll()
+	filteredWorkers := nodeFilter.FilterNodes(workerNodes)
+
+	masterNodes := s.masterPool.GetAllAsNodeInfo()
+	filteredMasters := nodeFilter.FilterNodes(masterNodes)
+
+	allNodes := make([]*pb.NodeDetail, 0, len(filteredWorkers)+len(filteredMasters))
+	for _, node := range filteredMasters {
+		allNodes = append(allNodes, common.CommonNodeToNodeDetail(node))
+	}
+	for _, node := range filteredWorkers {
+		allNodes = append(allNodes, common.CommonNodeToNodeDetail(node))
 	}
 
 	return &pb.ListNodesResponse{
-		Nodes:      pbNodes,
-		TotalCount: int32(len(pbNodes)),
+		Nodes:      allNodes,
+		TotalCount: int32(len(allNodes)),
 	}, nil
 }
 
@@ -415,4 +427,205 @@ func (s *AdminService) Authenticate(ctx context.Context, req *pb.AuthRequest) (*
 		Token:   token,
 		Message: "authenticated successfully",
 	}, nil
+}
+
+// ListMasters 列出 Master 节点（类似 kubectl get nodes -l role=master）
+func (s *AdminService) ListMasters(ctx context.Context, req *pb.ListMastersRequest) (*pb.ListMastersResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	masters := s.masterPool.GetAll()
+	if !req.IncludeOffline {
+		onlineMasters := make([]*common.MasterNodeInfo, 0, len(masters))
+		for _, m := range masters {
+			if m.GetState() != common.NodeStateOffline {
+				onlineMasters = append(onlineMasters, m)
+			}
+		}
+		masters = onlineMasters
+	}
+
+	if len(req.LabelSelector) > 0 {
+		filtered := make([]*common.MasterNodeInfo, 0, len(masters))
+		for _, m := range masters {
+			if matchLabels(m.GetLabels(), req.LabelSelector) {
+				filtered = append(filtered, m)
+			}
+		}
+		masters = filtered
+	}
+
+	leaderCount := int32(0)
+	pbMasters := make([]*pb.NodeDetail, 0, len(masters))
+	for _, m := range masters {
+		if m.IsLeader {
+			leaderCount++
+		}
+		pbMasters = append(pbMasters, common.CommonNodeToNodeDetail(m))
+	}
+
+	return &pb.ListMastersResponse{
+		Masters:     pbMasters,
+		TotalCount:  int32(len(pbMasters)),
+		LeaderCount: leaderCount,
+	}, nil
+}
+
+// ListWorkers 列出 Worker 节点（类似 kubectl get nodes -l role=worker）
+func (s *AdminService) ListWorkers(ctx context.Context, req *pb.ListWorkersRequest) (*pb.ListWorkersResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	workers := s.pool.GetAll()
+
+	if len(req.FilterStates) > 0 {
+		stateSet := make(map[common.NodeState]bool)
+		for _, s := range req.FilterStates {
+			stateSet[common.ProtoNodeStateToCommon(s)] = true
+		}
+		filtered := make([]common.NodeInfo, 0, len(workers))
+		for _, w := range workers {
+			if stateSet[w.GetState()] {
+				filtered = append(filtered, w)
+			}
+		}
+		workers = filtered
+	}
+
+	if req.RegionFilter != "" {
+		filtered := make([]common.NodeInfo, 0, len(workers))
+		for _, w := range workers {
+			if w.GetRegion() == req.RegionFilter {
+				filtered = append(filtered, w)
+			}
+		}
+		workers = filtered
+	}
+
+	if !req.IncludeOffline {
+		onlineWorkers := make([]common.NodeInfo, 0, len(workers))
+		for _, w := range workers {
+			if w.GetState() != common.NodeStateOffline {
+				onlineWorkers = append(onlineWorkers, w)
+			}
+		}
+		workers = onlineWorkers
+	}
+
+	if len(req.LabelSelector) > 0 {
+		filtered := make([]common.NodeInfo, 0, len(workers))
+		for _, w := range workers {
+			if matchLabels(w.GetLabels(), req.LabelSelector) {
+				filtered = append(filtered, w)
+			}
+		}
+		workers = filtered
+	}
+
+	healthyCount := int32(0)
+	pbWorkers := make([]*pb.NodeDetail, 0, len(workers))
+	for _, w := range workers {
+		if w.GetState() == common.NodeStateIdle || w.GetState() == common.NodeStateRunning {
+			healthyCount++
+		}
+		pbWorkers = append(pbWorkers, common.CommonNodeToNodeDetail(w))
+	}
+
+	return &pb.ListWorkersResponse{
+		Workers:      pbWorkers,
+		TotalCount:   int32(len(pbWorkers)),
+		HealthyCount: healthyCount,
+	}, nil
+}
+
+// AddTaint 给节点添加污点（类似 kubectl taint）
+func (s *AdminService) AddTaint(ctx context.Context, req *pb.AddTaintRequest) (*pb.AddTaintResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	taint := common.ProtoTaintToCommon(req.Taint)
+
+	// 先在 Worker 池中查找
+	if node, ok := s.pool.Get(req.NodeId); ok {
+		node.AddTaint(taint)
+		s.logger.InfoKV("Taint added to worker node",
+			"node_id", req.NodeId,
+			"taint_key", taint.Key,
+			"taint_effect", string(taint.Effect))
+		return &pb.AddTaintResponse{
+			Success: true,
+			Message: fmt.Sprintf("taint %s=%s:%s added to node %s", taint.Key, taint.Value, taint.Effect, req.NodeId),
+		}, nil
+	}
+
+	// 再在 Master 池中查找
+	if master, ok := s.masterPool.Get(req.NodeId); ok {
+		master.AddTaint(taint)
+		s.logger.InfoKV("Taint added to master node",
+			"node_id", req.NodeId,
+			"taint_key", taint.Key,
+			"taint_effect", string(taint.Effect))
+		return &pb.AddTaintResponse{
+			Success: true,
+			Message: fmt.Sprintf("taint %s=%s:%s added to master %s", taint.Key, taint.Value, taint.Effect, req.NodeId),
+		}, nil
+	}
+
+	return nil, fmt.Errorf(common.ErrNodeNotFound, req.NodeId)
+}
+
+// RemoveTaint 移除节点污点
+func (s *AdminService) RemoveTaint(ctx context.Context, req *pb.RemoveTaintRequest) (*pb.RemoveTaintResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	// 先在 Worker 池中查找
+	if node, ok := s.pool.Get(req.NodeId); ok {
+		if !node.RemoveTaint(req.TaintKey) {
+			return &pb.RemoveTaintResponse{
+				Success: false,
+				Message: fmt.Sprintf("taint key %s not found on node %s", req.TaintKey, req.NodeId),
+			}, nil
+		}
+		s.logger.InfoKV("Taint removed from worker node",
+			"node_id", req.NodeId,
+			"taint_key", req.TaintKey)
+		return &pb.RemoveTaintResponse{
+			Success: true,
+			Message: fmt.Sprintf("taint %s removed from node %s", req.TaintKey, req.NodeId),
+		}, nil
+	}
+
+	// 再在 Master 池中查找
+	if master, ok := s.masterPool.Get(req.NodeId); ok {
+		if !master.RemoveTaint(req.TaintKey) {
+			return &pb.RemoveTaintResponse{
+				Success: false,
+				Message: fmt.Sprintf("taint key %s not found on master %s", req.TaintKey, req.NodeId),
+			}, nil
+		}
+		s.logger.InfoKV("Taint removed from master node",
+			"node_id", req.NodeId,
+			"taint_key", req.TaintKey)
+		return &pb.RemoveTaintResponse{
+			Success: true,
+			Message: fmt.Sprintf("taint %s removed from master %s", req.TaintKey, req.NodeId),
+		}, nil
+	}
+
+	return nil, fmt.Errorf(common.ErrNodeNotFound, req.NodeId)
+}
+
+// matchLabels 检查节点标签是否匹配选择器
+func matchLabels(nodeLabels, selector map[string]string) bool {
+	for k, v := range selector {
+		if nodeVal, ok := nodeLabels[k]; !ok || nodeVal != v {
+			return false
+		}
+	}
+	return true
 }

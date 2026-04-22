@@ -96,6 +96,7 @@ func NewWorker[T common.NodeInfo](
 // populateBaseNode 填充节点基础信息（主机名、IP、CPU、内存等）
 func populateBaseNode[T common.NodeInfo](node T, config *common.WorkerConfig, hostname, ip string) {
 	node.SetState(common.NodeStateIdle)
+	node.SetRole(common.NodeRoleWorker)
 	base, ok := any(node).(*common.BaseNodeInfo)
 	if ok {
 		base.ID = config.WorkerID
@@ -107,6 +108,7 @@ func populateBaseNode[T common.NodeInfo](node T, config *common.WorkerConfig, ho
 		base.Version = "1.0.0"
 		base.Region = config.Region
 		base.Labels = config.Labels
+		base.Role = common.NodeRoleWorker
 	}
 }
 

@@ -20,8 +20,9 @@
 package common
 
 import (
-	pb "github.com/kamalyes/go-distributed/proto"
 	"time"
+
+	pb "github.com/kamalyes/go-distributed/proto"
 )
 
 // =====================================================================
@@ -173,6 +174,109 @@ func CommonConnectionStateToProto(state ConnectionState) pb.ConnectionState {
 }
 
 // =====================================================================
+// NodeRole 转换
+// =====================================================================
+
+// ProtoNodeRoleToCommon 将 protobuf NodeRole 枚举转换为 NodeRole
+func ProtoNodeRoleToCommon(role pb.NodeRole) NodeRole {
+	switch role {
+	case pb.NodeRole_NODE_ROLE_MASTER:
+		return NodeRoleMaster
+	case pb.NodeRole_NODE_ROLE_WORKER:
+		return NodeRoleWorker
+	default:
+		return NodeRoleWorker
+	}
+}
+
+// CommonNodeRoleToProto 将 NodeRole 转换为 protobuf NodeRole 枚举
+func CommonNodeRoleToProto(role NodeRole) pb.NodeRole {
+	switch role {
+	case NodeRoleMaster:
+		return pb.NodeRole_NODE_ROLE_MASTER
+	case NodeRoleWorker:
+		return pb.NodeRole_NODE_ROLE_WORKER
+	default:
+		return pb.NodeRole_NODE_ROLE_UNSPECIFIED
+	}
+}
+
+// =====================================================================
+// TaintEffect 转换
+// =====================================================================
+
+// ProtoTaintEffectToCommon 将 protobuf TaintEffect 枚举转换为 TaintEffect
+func ProtoTaintEffectToCommon(effect pb.TaintEffect) TaintEffect {
+	switch effect {
+	case pb.TaintEffect_TAINT_EFFECT_NO_SCHEDULE:
+		return TaintEffectNoSchedule
+	case pb.TaintEffect_TAINT_EFFECT_PREFER_NO_SCHEDULE:
+		return TaintEffectPreferNoSchedule
+	case pb.TaintEffect_TAINT_EFFECT_NO_EXECUTE:
+		return TaintEffectNoExecute
+	default:
+		return TaintEffectNoSchedule
+	}
+}
+
+// CommonTaintEffectToProto 将 TaintEffect 转换为 protobuf TaintEffect 枚举
+func CommonTaintEffectToProto(effect TaintEffect) pb.TaintEffect {
+	switch effect {
+	case TaintEffectNoSchedule:
+		return pb.TaintEffect_TAINT_EFFECT_NO_SCHEDULE
+	case TaintEffectPreferNoSchedule:
+		return pb.TaintEffect_TAINT_EFFECT_PREFER_NO_SCHEDULE
+	case TaintEffectNoExecute:
+		return pb.TaintEffect_TAINT_EFFECT_NO_EXECUTE
+	default:
+		return pb.TaintEffect_TAINT_EFFECT_UNSPECIFIED
+	}
+}
+
+// =====================================================================
+// Taint 转换
+// =====================================================================
+
+// ProtoTaintToCommon 将 protobuf Taint 转换为 Taint
+func ProtoTaintToCommon(t *pb.Taint) Taint {
+	if t == nil {
+		return Taint{}
+	}
+	return Taint{
+		Key:    t.Key,
+		Value:  t.Value,
+		Effect: ProtoTaintEffectToCommon(t.Effect),
+	}
+}
+
+// CommonTaintToProto 将 Taint 转换为 protobuf Taint
+func CommonTaintToProto(t Taint) *pb.Taint {
+	return &pb.Taint{
+		Key:    t.Key,
+		Value:  t.Value,
+		Effect: CommonTaintEffectToProto(t.Effect),
+	}
+}
+
+// CommonTaintsToProto 将 Taint 列表转换为 protobuf Taint 列表
+func CommonTaintsToProto(taints []Taint) []*pb.Taint {
+	result := make([]*pb.Taint, len(taints))
+	for i, t := range taints {
+		result[i] = CommonTaintToProto(t)
+	}
+	return result
+}
+
+// ProtoTaintsToCommon 将 protobuf Taint 列表转换为 Taint 列表
+func ProtoTaintsToCommon(taints []*pb.Taint) []Taint {
+	result := make([]Taint, len(taints))
+	for i, t := range taints {
+		result[i] = ProtoTaintToCommon(t)
+	}
+	return result
+}
+
+// =====================================================================
 // BaseNodeInfo 转换
 // =====================================================================
 
@@ -191,6 +295,8 @@ func ProtoBaseNodeInfoToCommon(info *pb.BaseNodeInfo) *BaseNodeInfo {
 		Version:  info.Version,
 		Region:   info.Region,
 		Labels:   info.Labels,
+		Role:     ProtoNodeRoleToCommon(info.Role),
+		Taints:   ProtoTaintsToCommon(info.Taints),
 	}
 }
 
@@ -209,6 +315,8 @@ func CommonNodeInfoToProto(nodeInfo NodeInfo) *pb.BaseNodeInfo {
 		Version:  nodeInfo.GetVersion(),
 		Region:   nodeInfo.GetRegion(),
 		Labels:   nodeInfo.GetLabels(),
+		Role:     CommonNodeRoleToProto(nodeInfo.GetRole()),
+		Taints:   CommonTaintsToProto(nodeInfo.GetTaints()),
 	}
 }
 
@@ -340,7 +448,7 @@ func CommonNodeToNodeDetail(node NodeInfo) *pb.NodeDetail {
 		capacity = CommonResourceUsageToProto(usage)
 	}
 
-	return &pb.NodeDetail{
+	detail := &pb.NodeDetail{
 		NodeInfo:        CommonNodeInfoToProto(node),
 		State:           CommonNodeStateToProto(node.GetState()),
 		Capacity:        capacity,
@@ -348,5 +456,15 @@ func CommonNodeToNodeDetail(node NodeInfo) *pb.NodeDetail {
 		LastHeartbeatMs: node.GetLastHeartbeat().UnixMilli(),
 		Schedulable:     node.IsSchedulable(),
 		DisableReason:   node.GetDisableReason(),
+		Role:            CommonNodeRoleToProto(node.GetRole()),
+		Taints:          CommonTaintsToProto(node.GetTaints()),
 	}
+
+	if master, ok := node.(*MasterNodeInfo); ok {
+		detail.IsLeader = master.IsLeader
+		detail.ClusterName = master.ClusterName
+		detail.PeerAddr = master.PeerAddr
+	}
+
+	return detail
 }

@@ -280,6 +280,170 @@ func (ConnectionState) EnumDescriptor() ([]byte, []int) {
 	return file_proto_distributed_proto_rawDescGZIP(), []int{2}
 }
 
+// NodeRole 节点角色
+type NodeRole int32
+
+const (
+	NodeRole_NODE_ROLE_UNSPECIFIED NodeRole = 0 // 未指定
+	NodeRole_NODE_ROLE_MASTER      NodeRole = 1 // Master 控制节点
+	NodeRole_NODE_ROLE_WORKER      NodeRole = 2 // Worker 工作节点
+)
+
+// Enum value maps for NodeRole.
+var (
+	NodeRole_name = map[int32]string{
+		0: "NODE_ROLE_UNSPECIFIED",
+		1: "NODE_ROLE_MASTER",
+		2: "NODE_ROLE_WORKER",
+	}
+	NodeRole_value = map[string]int32{
+		"NODE_ROLE_UNSPECIFIED": 0,
+		"NODE_ROLE_MASTER":      1,
+		"NODE_ROLE_WORKER":      2,
+	}
+)
+
+func (x NodeRole) Enum() *NodeRole {
+	p := new(NodeRole)
+	*p = x
+	return p
+}
+
+func (x NodeRole) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (NodeRole) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_distributed_proto_enumTypes[3].Descriptor()
+}
+
+func (NodeRole) Type() protoreflect.EnumType {
+	return &file_proto_distributed_proto_enumTypes[3]
+}
+
+func (x NodeRole) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use NodeRole.Descriptor instead.
+func (NodeRole) EnumDescriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{3}
+}
+
+// TaintEffect 污点效果
+type TaintEffect int32
+
+const (
+	TaintEffect_TAINT_EFFECT_UNSPECIFIED        TaintEffect = 0 // 未指定
+	TaintEffect_TAINT_EFFECT_NO_SCHEDULE        TaintEffect = 1 // 不调度 - 不会将新任务调度到此节点
+	TaintEffect_TAINT_EFFECT_PREFER_NO_SCHEDULE TaintEffect = 2 // 尽量不调度
+	TaintEffect_TAINT_EFFECT_NO_EXECUTE         TaintEffect = 3 // 不执行 - 不调度且驱逐已有任务
+)
+
+// Enum value maps for TaintEffect.
+var (
+	TaintEffect_name = map[int32]string{
+		0: "TAINT_EFFECT_UNSPECIFIED",
+		1: "TAINT_EFFECT_NO_SCHEDULE",
+		2: "TAINT_EFFECT_PREFER_NO_SCHEDULE",
+		3: "TAINT_EFFECT_NO_EXECUTE",
+	}
+	TaintEffect_value = map[string]int32{
+		"TAINT_EFFECT_UNSPECIFIED":        0,
+		"TAINT_EFFECT_NO_SCHEDULE":        1,
+		"TAINT_EFFECT_PREFER_NO_SCHEDULE": 2,
+		"TAINT_EFFECT_NO_EXECUTE":         3,
+	}
+)
+
+func (x TaintEffect) Enum() *TaintEffect {
+	p := new(TaintEffect)
+	*p = x
+	return p
+}
+
+func (x TaintEffect) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (TaintEffect) Descriptor() protoreflect.EnumDescriptor {
+	return file_proto_distributed_proto_enumTypes[4].Descriptor()
+}
+
+func (TaintEffect) Type() protoreflect.EnumType {
+	return &file_proto_distributed_proto_enumTypes[4]
+}
+
+func (x TaintEffect) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use TaintEffect.Descriptor instead.
+func (TaintEffect) EnumDescriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{4}
+}
+
+// Taint 节点污点（类似 Kubernetes Taint）
+type Taint struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Key           string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`                                     // 污点键
+	Value         string                 `protobuf:"bytes,2,opt,name=value,proto3" json:"value,omitempty"`                                 // 污点值
+	Effect        TaintEffect            `protobuf:"varint,3,opt,name=effect,proto3,enum=distributed.TaintEffect" json:"effect,omitempty"` // 污点效果
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Taint) Reset() {
+	*x = Taint{}
+	mi := &file_proto_distributed_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Taint) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Taint) ProtoMessage() {}
+
+func (x *Taint) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Taint.ProtoReflect.Descriptor instead.
+func (*Taint) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Taint) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Taint) GetValue() string {
+	if x != nil {
+		return x.Value
+	}
+	return ""
+}
+
+func (x *Taint) GetEffect() TaintEffect {
+	if x != nil {
+		return x.Effect
+	}
+	return TaintEffect_TAINT_EFFECT_UNSPECIFIED
+}
+
 // BaseNodeInfo 节点基础信息
 // 注册时由 Worker 上报，Master 据此进行节点管理和负载评估
 type BaseNodeInfo struct {
@@ -293,13 +457,15 @@ type BaseNodeInfo struct {
 	Version       string                 `protobuf:"bytes,7,opt,name=version,proto3" json:"version,omitempty"`                                                                         // Worker 版本号（用于兼容性检查）
 	Region        string                 `protobuf:"bytes,8,opt,name=region,proto3" json:"region,omitempty"`                                                                           // 地域标签（用于亲和性调度）
 	Labels        map[string]string      `protobuf:"bytes,9,rep,name=labels,proto3" json:"labels,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // 自定义标签（用于灵活的调度策略）
+	Role          NodeRole               `protobuf:"varint,10,opt,name=role,proto3,enum=distributed.NodeRole" json:"role,omitempty"`                                                   // 节点角色（master/worker）
+	Taints        []*Taint               `protobuf:"bytes,11,rep,name=taints,proto3" json:"taints,omitempty"`                                                                          // 节点污点列表
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *BaseNodeInfo) Reset() {
 	*x = BaseNodeInfo{}
-	mi := &file_proto_distributed_proto_msgTypes[0]
+	mi := &file_proto_distributed_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -311,7 +477,7 @@ func (x *BaseNodeInfo) String() string {
 func (*BaseNodeInfo) ProtoMessage() {}
 
 func (x *BaseNodeInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[0]
+	mi := &file_proto_distributed_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -324,7 +490,7 @@ func (x *BaseNodeInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BaseNodeInfo.ProtoReflect.Descriptor instead.
 func (*BaseNodeInfo) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{0}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *BaseNodeInfo) GetNodeId() string {
@@ -390,6 +556,20 @@ func (x *BaseNodeInfo) GetLabels() map[string]string {
 	return nil
 }
 
+func (x *BaseNodeInfo) GetRole() NodeRole {
+	if x != nil {
+		return x.Role
+	}
+	return NodeRole_NODE_ROLE_UNSPECIFIED
+}
+
+func (x *BaseNodeInfo) GetTaints() []*Taint {
+	if x != nil {
+		return x.Taints
+	}
+	return nil
+}
+
 // NodeCapacity 节点实时容量信息
 // Worker 运行时动态更新，反映当前资源使用情况
 type NodeCapacity struct {
@@ -408,7 +588,7 @@ type NodeCapacity struct {
 
 func (x *NodeCapacity) Reset() {
 	*x = NodeCapacity{}
-	mi := &file_proto_distributed_proto_msgTypes[1]
+	mi := &file_proto_distributed_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -420,7 +600,7 @@ func (x *NodeCapacity) String() string {
 func (*NodeCapacity) ProtoMessage() {}
 
 func (x *NodeCapacity) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[1]
+	mi := &file_proto_distributed_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -433,7 +613,7 @@ func (x *NodeCapacity) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeCapacity.ProtoReflect.Descriptor instead.
 func (*NodeCapacity) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{1}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *NodeCapacity) GetRunningTasks() int32 {
@@ -507,7 +687,7 @@ type RegisterRequest struct {
 
 func (x *RegisterRequest) Reset() {
 	*x = RegisterRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[2]
+	mi := &file_proto_distributed_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -519,7 +699,7 @@ func (x *RegisterRequest) String() string {
 func (*RegisterRequest) ProtoMessage() {}
 
 func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[2]
+	mi := &file_proto_distributed_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -532,7 +712,7 @@ func (x *RegisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterRequest.ProtoReflect.Descriptor instead.
 func (*RegisterRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{2}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *RegisterRequest) GetNodeInfo() *BaseNodeInfo {
@@ -578,7 +758,7 @@ type RegisterResponse struct {
 
 func (x *RegisterResponse) Reset() {
 	*x = RegisterResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[3]
+	mi := &file_proto_distributed_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -590,7 +770,7 @@ func (x *RegisterResponse) String() string {
 func (*RegisterResponse) ProtoMessage() {}
 
 func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[3]
+	mi := &file_proto_distributed_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -603,7 +783,7 @@ func (x *RegisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RegisterResponse.ProtoReflect.Descriptor instead.
 func (*RegisterResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{3}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *RegisterResponse) GetSuccess() bool {
@@ -656,7 +836,7 @@ type HeartbeatRequest struct {
 
 func (x *HeartbeatRequest) Reset() {
 	*x = HeartbeatRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[4]
+	mi := &file_proto_distributed_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -668,7 +848,7 @@ func (x *HeartbeatRequest) String() string {
 func (*HeartbeatRequest) ProtoMessage() {}
 
 func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[4]
+	mi := &file_proto_distributed_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -681,7 +861,7 @@ func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatRequest.ProtoReflect.Descriptor instead.
 func (*HeartbeatRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{4}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *HeartbeatRequest) GetNodeId() string {
@@ -733,7 +913,7 @@ type HeartbeatResponse struct {
 
 func (x *HeartbeatResponse) Reset() {
 	*x = HeartbeatResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[5]
+	mi := &file_proto_distributed_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -745,7 +925,7 @@ func (x *HeartbeatResponse) String() string {
 func (*HeartbeatResponse) ProtoMessage() {}
 
 func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[5]
+	mi := &file_proto_distributed_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -758,7 +938,7 @@ func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HeartbeatResponse.ProtoReflect.Descriptor instead.
 func (*HeartbeatResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{5}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *HeartbeatResponse) GetOk() bool {
@@ -802,7 +982,7 @@ type UnregisterRequest struct {
 
 func (x *UnregisterRequest) Reset() {
 	*x = UnregisterRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[6]
+	mi := &file_proto_distributed_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -814,7 +994,7 @@ func (x *UnregisterRequest) String() string {
 func (*UnregisterRequest) ProtoMessage() {}
 
 func (x *UnregisterRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[6]
+	mi := &file_proto_distributed_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -827,7 +1007,7 @@ func (x *UnregisterRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnregisterRequest.ProtoReflect.Descriptor instead.
 func (*UnregisterRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{6}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *UnregisterRequest) GetNodeId() string {
@@ -863,7 +1043,7 @@ type UnregisterResponse struct {
 
 func (x *UnregisterResponse) Reset() {
 	*x = UnregisterResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[7]
+	mi := &file_proto_distributed_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -875,7 +1055,7 @@ func (x *UnregisterResponse) String() string {
 func (*UnregisterResponse) ProtoMessage() {}
 
 func (x *UnregisterResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[7]
+	mi := &file_proto_distributed_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -888,7 +1068,7 @@ func (x *UnregisterResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UnregisterResponse.ProtoReflect.Descriptor instead.
 func (*UnregisterResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{7}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *UnregisterResponse) GetSuccess() bool {
@@ -934,7 +1114,7 @@ type TaskInfo struct {
 
 func (x *TaskInfo) Reset() {
 	*x = TaskInfo{}
-	mi := &file_proto_distributed_proto_msgTypes[8]
+	mi := &file_proto_distributed_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -946,7 +1126,7 @@ func (x *TaskInfo) String() string {
 func (*TaskInfo) ProtoMessage() {}
 
 func (x *TaskInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[8]
+	mi := &file_proto_distributed_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -959,7 +1139,7 @@ func (x *TaskInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskInfo.ProtoReflect.Descriptor instead.
 func (*TaskInfo) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{8}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *TaskInfo) GetTaskId() string {
@@ -1052,7 +1232,7 @@ type DispatchTaskRequest struct {
 
 func (x *DispatchTaskRequest) Reset() {
 	*x = DispatchTaskRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[9]
+	mi := &file_proto_distributed_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1064,7 +1244,7 @@ func (x *DispatchTaskRequest) String() string {
 func (*DispatchTaskRequest) ProtoMessage() {}
 
 func (x *DispatchTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[9]
+	mi := &file_proto_distributed_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1077,7 +1257,7 @@ func (x *DispatchTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DispatchTaskRequest.ProtoReflect.Descriptor instead.
 func (*DispatchTaskRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{9}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *DispatchTaskRequest) GetTask() *TaskInfo {
@@ -1106,7 +1286,7 @@ type DispatchTaskResponse struct {
 
 func (x *DispatchTaskResponse) Reset() {
 	*x = DispatchTaskResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[10]
+	mi := &file_proto_distributed_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1118,7 +1298,7 @@ func (x *DispatchTaskResponse) String() string {
 func (*DispatchTaskResponse) ProtoMessage() {}
 
 func (x *DispatchTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[10]
+	mi := &file_proto_distributed_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1131,7 +1311,7 @@ func (x *DispatchTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DispatchTaskResponse.ProtoReflect.Descriptor instead.
 func (*DispatchTaskResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{10}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *DispatchTaskResponse) GetAccepted() bool {
@@ -1167,7 +1347,7 @@ type TaskStatusUpdate struct {
 
 func (x *TaskStatusUpdate) Reset() {
 	*x = TaskStatusUpdate{}
-	mi := &file_proto_distributed_proto_msgTypes[11]
+	mi := &file_proto_distributed_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1179,7 +1359,7 @@ func (x *TaskStatusUpdate) String() string {
 func (*TaskStatusUpdate) ProtoMessage() {}
 
 func (x *TaskStatusUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[11]
+	mi := &file_proto_distributed_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1192,7 +1372,7 @@ func (x *TaskStatusUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskStatusUpdate.ProtoReflect.Descriptor instead.
 func (*TaskStatusUpdate) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{11}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *TaskStatusUpdate) GetTaskId() string {
@@ -1263,7 +1443,7 @@ type TaskStatusUpdateResponse struct {
 
 func (x *TaskStatusUpdateResponse) Reset() {
 	*x = TaskStatusUpdateResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[12]
+	mi := &file_proto_distributed_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1275,7 +1455,7 @@ func (x *TaskStatusUpdateResponse) String() string {
 func (*TaskStatusUpdateResponse) ProtoMessage() {}
 
 func (x *TaskStatusUpdateResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[12]
+	mi := &file_proto_distributed_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1288,7 +1468,7 @@ func (x *TaskStatusUpdateResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TaskStatusUpdateResponse.ProtoReflect.Descriptor instead.
 func (*TaskStatusUpdateResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{12}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *TaskStatusUpdateResponse) GetAcknowledged() bool {
@@ -1318,7 +1498,7 @@ type CancelTaskRequest struct {
 
 func (x *CancelTaskRequest) Reset() {
 	*x = CancelTaskRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[13]
+	mi := &file_proto_distributed_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1330,7 +1510,7 @@ func (x *CancelTaskRequest) String() string {
 func (*CancelTaskRequest) ProtoMessage() {}
 
 func (x *CancelTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[13]
+	mi := &file_proto_distributed_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1343,7 +1523,7 @@ func (x *CancelTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelTaskRequest.ProtoReflect.Descriptor instead.
 func (*CancelTaskRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{13}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *CancelTaskRequest) GetTaskId() string {
@@ -1379,7 +1559,7 @@ type CancelTaskResponse struct {
 
 func (x *CancelTaskResponse) Reset() {
 	*x = CancelTaskResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[14]
+	mi := &file_proto_distributed_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1391,7 +1571,7 @@ func (x *CancelTaskResponse) String() string {
 func (*CancelTaskResponse) ProtoMessage() {}
 
 func (x *CancelTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[14]
+	mi := &file_proto_distributed_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1404,7 +1584,7 @@ func (x *CancelTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CancelTaskResponse.ProtoReflect.Descriptor instead.
 func (*CancelTaskResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{14}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CancelTaskResponse) GetSuccess() bool {
@@ -1442,7 +1622,7 @@ type QueryTasksRequest struct {
 
 func (x *QueryTasksRequest) Reset() {
 	*x = QueryTasksRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[15]
+	mi := &file_proto_distributed_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1454,7 +1634,7 @@ func (x *QueryTasksRequest) String() string {
 func (*QueryTasksRequest) ProtoMessage() {}
 
 func (x *QueryTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[15]
+	mi := &file_proto_distributed_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1467,7 +1647,7 @@ func (x *QueryTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTasksRequest.ProtoReflect.Descriptor instead.
 func (*QueryTasksRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{15}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *QueryTasksRequest) GetNodeId() string {
@@ -1509,7 +1689,7 @@ type QueryTasksResponse struct {
 
 func (x *QueryTasksResponse) Reset() {
 	*x = QueryTasksResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[16]
+	mi := &file_proto_distributed_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1521,7 +1701,7 @@ func (x *QueryTasksResponse) String() string {
 func (*QueryTasksResponse) ProtoMessage() {}
 
 func (x *QueryTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[16]
+	mi := &file_proto_distributed_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1534,7 +1714,7 @@ func (x *QueryTasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use QueryTasksResponse.ProtoReflect.Descriptor instead.
 func (*QueryTasksResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{16}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *QueryTasksResponse) GetTasks() []*TaskInfo {
@@ -1567,7 +1747,7 @@ type ConnectRequest struct {
 
 func (x *ConnectRequest) Reset() {
 	*x = ConnectRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[17]
+	mi := &file_proto_distributed_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1579,7 +1759,7 @@ func (x *ConnectRequest) String() string {
 func (*ConnectRequest) ProtoMessage() {}
 
 func (x *ConnectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[17]
+	mi := &file_proto_distributed_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1592,7 +1772,7 @@ func (x *ConnectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConnectRequest.ProtoReflect.Descriptor instead.
 func (*ConnectRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{17}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ConnectRequest) GetNodeId() string {
@@ -1646,7 +1826,7 @@ type ConnectResponse struct {
 
 func (x *ConnectResponse) Reset() {
 	*x = ConnectResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[18]
+	mi := &file_proto_distributed_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1658,7 +1838,7 @@ func (x *ConnectResponse) String() string {
 func (*ConnectResponse) ProtoMessage() {}
 
 func (x *ConnectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[18]
+	mi := &file_proto_distributed_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1671,7 +1851,7 @@ func (x *ConnectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConnectResponse.ProtoReflect.Descriptor instead.
 func (*ConnectResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{18}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ConnectResponse) GetAccepted() bool {
@@ -1730,7 +1910,7 @@ type DisconnectRequest struct {
 
 func (x *DisconnectRequest) Reset() {
 	*x = DisconnectRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[19]
+	mi := &file_proto_distributed_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1742,7 +1922,7 @@ func (x *DisconnectRequest) String() string {
 func (*DisconnectRequest) ProtoMessage() {}
 
 func (x *DisconnectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[19]
+	mi := &file_proto_distributed_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1755,7 +1935,7 @@ func (x *DisconnectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisconnectRequest.ProtoReflect.Descriptor instead.
 func (*DisconnectRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{19}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *DisconnectRequest) GetNodeId() string {
@@ -1798,7 +1978,7 @@ type DisconnectResponse struct {
 
 func (x *DisconnectResponse) Reset() {
 	*x = DisconnectResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[20]
+	mi := &file_proto_distributed_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1810,7 +1990,7 @@ func (x *DisconnectResponse) String() string {
 func (*DisconnectResponse) ProtoMessage() {}
 
 func (x *DisconnectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[20]
+	mi := &file_proto_distributed_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1823,7 +2003,7 @@ func (x *DisconnectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisconnectResponse.ProtoReflect.Descriptor instead.
 func (*DisconnectResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{20}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *DisconnectResponse) GetAcknowledged() bool {
@@ -1860,7 +2040,7 @@ type DrainCompleteRequest struct {
 
 func (x *DrainCompleteRequest) Reset() {
 	*x = DrainCompleteRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[21]
+	mi := &file_proto_distributed_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1872,7 +2052,7 @@ func (x *DrainCompleteRequest) String() string {
 func (*DrainCompleteRequest) ProtoMessage() {}
 
 func (x *DrainCompleteRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[21]
+	mi := &file_proto_distributed_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1885,7 +2065,7 @@ func (x *DrainCompleteRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrainCompleteRequest.ProtoReflect.Descriptor instead.
 func (*DrainCompleteRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{21}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *DrainCompleteRequest) GetNodeId() string {
@@ -1920,7 +2100,7 @@ type DrainCompleteResponse struct {
 
 func (x *DrainCompleteResponse) Reset() {
 	*x = DrainCompleteResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[22]
+	mi := &file_proto_distributed_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1932,7 +2112,7 @@ func (x *DrainCompleteResponse) String() string {
 func (*DrainCompleteResponse) ProtoMessage() {}
 
 func (x *DrainCompleteResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[22]
+	mi := &file_proto_distributed_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1945,7 +2125,7 @@ func (x *DrainCompleteResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrainCompleteResponse.ProtoReflect.Descriptor instead.
 func (*DrainCompleteResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{22}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *DrainCompleteResponse) GetAcknowledged() bool {
@@ -1974,7 +2154,7 @@ type UpdateCapacityRequest struct {
 
 func (x *UpdateCapacityRequest) Reset() {
 	*x = UpdateCapacityRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[23]
+	mi := &file_proto_distributed_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1986,7 +2166,7 @@ func (x *UpdateCapacityRequest) String() string {
 func (*UpdateCapacityRequest) ProtoMessage() {}
 
 func (x *UpdateCapacityRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[23]
+	mi := &file_proto_distributed_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1999,7 +2179,7 @@ func (x *UpdateCapacityRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCapacityRequest.ProtoReflect.Descriptor instead.
 func (*UpdateCapacityRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{23}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *UpdateCapacityRequest) GetNodeId() string {
@@ -2027,7 +2207,7 @@ type UpdateCapacityResponse struct {
 
 func (x *UpdateCapacityResponse) Reset() {
 	*x = UpdateCapacityResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[24]
+	mi := &file_proto_distributed_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2039,7 +2219,7 @@ func (x *UpdateCapacityResponse) String() string {
 func (*UpdateCapacityResponse) ProtoMessage() {}
 
 func (x *UpdateCapacityResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[24]
+	mi := &file_proto_distributed_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2052,7 +2232,7 @@ func (x *UpdateCapacityResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateCapacityResponse.ProtoReflect.Descriptor instead.
 func (*UpdateCapacityResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{24}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *UpdateCapacityResponse) GetAcknowledged() bool {
@@ -2081,7 +2261,7 @@ type HealthCheckRequest struct {
 
 func (x *HealthCheckRequest) Reset() {
 	*x = HealthCheckRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[25]
+	mi := &file_proto_distributed_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2093,7 +2273,7 @@ func (x *HealthCheckRequest) String() string {
 func (*HealthCheckRequest) ProtoMessage() {}
 
 func (x *HealthCheckRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[25]
+	mi := &file_proto_distributed_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2106,7 +2286,7 @@ func (x *HealthCheckRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheckRequest.ProtoReflect.Descriptor instead.
 func (*HealthCheckRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{25}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *HealthCheckRequest) GetNodeId() string {
@@ -2138,7 +2318,7 @@ type HealthCheckResponse struct {
 
 func (x *HealthCheckResponse) Reset() {
 	*x = HealthCheckResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[26]
+	mi := &file_proto_distributed_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2150,7 +2330,7 @@ func (x *HealthCheckResponse) String() string {
 func (*HealthCheckResponse) ProtoMessage() {}
 
 func (x *HealthCheckResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[26]
+	mi := &file_proto_distributed_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2163,7 +2343,7 @@ func (x *HealthCheckResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HealthCheckResponse.ProtoReflect.Descriptor instead.
 func (*HealthCheckResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{26}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *HealthCheckResponse) GetHealthy() bool {
@@ -2227,7 +2407,7 @@ type MasterCommand struct {
 
 func (x *MasterCommand) Reset() {
 	*x = MasterCommand{}
-	mi := &file_proto_distributed_proto_msgTypes[27]
+	mi := &file_proto_distributed_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2239,7 +2419,7 @@ func (x *MasterCommand) String() string {
 func (*MasterCommand) ProtoMessage() {}
 
 func (x *MasterCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[27]
+	mi := &file_proto_distributed_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2252,7 +2432,7 @@ func (x *MasterCommand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MasterCommand.ProtoReflect.Descriptor instead.
 func (*MasterCommand) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{27}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *MasterCommand) GetCommand() isMasterCommand_Command {
@@ -2375,7 +2555,7 @@ type WorkerReport struct {
 
 func (x *WorkerReport) Reset() {
 	*x = WorkerReport{}
-	mi := &file_proto_distributed_proto_msgTypes[28]
+	mi := &file_proto_distributed_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2387,7 +2567,7 @@ func (x *WorkerReport) String() string {
 func (*WorkerReport) ProtoMessage() {}
 
 func (x *WorkerReport) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[28]
+	mi := &file_proto_distributed_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2400,7 +2580,7 @@ func (x *WorkerReport) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WorkerReport.ProtoReflect.Descriptor instead.
 func (*WorkerReport) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{28}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *WorkerReport) GetReport() isWorkerReport_Report {
@@ -2519,7 +2699,7 @@ type ListNodesRequest struct {
 
 func (x *ListNodesRequest) Reset() {
 	*x = ListNodesRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[29]
+	mi := &file_proto_distributed_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2531,7 +2711,7 @@ func (x *ListNodesRequest) String() string {
 func (*ListNodesRequest) ProtoMessage() {}
 
 func (x *ListNodesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[29]
+	mi := &file_proto_distributed_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2544,7 +2724,7 @@ func (x *ListNodesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNodesRequest.ProtoReflect.Descriptor instead.
 func (*ListNodesRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{29}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ListNodesRequest) GetFilterStates() []NodeState {
@@ -2603,13 +2783,18 @@ type NodeDetail struct {
 	ConnectionState      ConnectionState        `protobuf:"varint,9,opt,name=connection_state,json=connectionState,proto3,enum=distributed.ConnectionState" json:"connection_state,omitempty"` // 连接状态
 	Schedulable          bool                   `protobuf:"varint,10,opt,name=schedulable,proto3" json:"schedulable,omitempty"`                                                                // 是否可调度（未被 cordon）
 	DisableReason        string                 `protobuf:"bytes,11,opt,name=disable_reason,json=disableReason,proto3" json:"disable_reason,omitempty"`                                        // 停用原因（仅当 schedulable=false 时有值）
+	Role                 NodeRole               `protobuf:"varint,12,opt,name=role,proto3,enum=distributed.NodeRole" json:"role,omitempty"`                                                    // 节点角色（master/worker）
+	Taints               []*Taint               `protobuf:"bytes,13,rep,name=taints,proto3" json:"taints,omitempty"`                                                                           // 节点污点列表
+	IsLeader             bool                   `protobuf:"varint,14,opt,name=is_leader,json=isLeader,proto3" json:"is_leader,omitempty"`                                                      // 是否为 Leader（仅 Master 节点）
+	ClusterName          string                 `protobuf:"bytes,15,opt,name=cluster_name,json=clusterName,proto3" json:"cluster_name,omitempty"`                                              // 所属集群名称（仅 Master 节点）
+	PeerAddr             string                 `protobuf:"bytes,16,opt,name=peer_addr,json=peerAddr,proto3" json:"peer_addr,omitempty"`                                                       // 集群内通信地址（仅 Master 节点）
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
 
 func (x *NodeDetail) Reset() {
 	*x = NodeDetail{}
-	mi := &file_proto_distributed_proto_msgTypes[30]
+	mi := &file_proto_distributed_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2621,7 +2806,7 @@ func (x *NodeDetail) String() string {
 func (*NodeDetail) ProtoMessage() {}
 
 func (x *NodeDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[30]
+	mi := &file_proto_distributed_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2634,7 +2819,7 @@ func (x *NodeDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeDetail.ProtoReflect.Descriptor instead.
 func (*NodeDetail) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{30}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *NodeDetail) GetNodeInfo() *BaseNodeInfo {
@@ -2714,6 +2899,41 @@ func (x *NodeDetail) GetDisableReason() string {
 	return ""
 }
 
+func (x *NodeDetail) GetRole() NodeRole {
+	if x != nil {
+		return x.Role
+	}
+	return NodeRole_NODE_ROLE_UNSPECIFIED
+}
+
+func (x *NodeDetail) GetTaints() []*Taint {
+	if x != nil {
+		return x.Taints
+	}
+	return nil
+}
+
+func (x *NodeDetail) GetIsLeader() bool {
+	if x != nil {
+		return x.IsLeader
+	}
+	return false
+}
+
+func (x *NodeDetail) GetClusterName() string {
+	if x != nil {
+		return x.ClusterName
+	}
+	return ""
+}
+
+func (x *NodeDetail) GetPeerAddr() string {
+	if x != nil {
+		return x.PeerAddr
+	}
+	return ""
+}
+
 // ListNodesResponse 列出节点响应
 type ListNodesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -2726,7 +2946,7 @@ type ListNodesResponse struct {
 
 func (x *ListNodesResponse) Reset() {
 	*x = ListNodesResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[31]
+	mi := &file_proto_distributed_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2738,7 +2958,7 @@ func (x *ListNodesResponse) String() string {
 func (*ListNodesResponse) ProtoMessage() {}
 
 func (x *ListNodesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[31]
+	mi := &file_proto_distributed_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2751,7 +2971,7 @@ func (x *ListNodesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListNodesResponse.ProtoReflect.Descriptor instead.
 func (*ListNodesResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{31}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *ListNodesResponse) GetNodes() []*NodeDetail {
@@ -2785,7 +3005,7 @@ type GetNodeInfoRequest struct {
 
 func (x *GetNodeInfoRequest) Reset() {
 	*x = GetNodeInfoRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[32]
+	mi := &file_proto_distributed_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2797,7 +3017,7 @@ func (x *GetNodeInfoRequest) String() string {
 func (*GetNodeInfoRequest) ProtoMessage() {}
 
 func (x *GetNodeInfoRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[32]
+	mi := &file_proto_distributed_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2810,7 +3030,7 @@ func (x *GetNodeInfoRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeInfoRequest.ProtoReflect.Descriptor instead.
 func (*GetNodeInfoRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{32}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{33}
 }
 
 func (x *GetNodeInfoRequest) GetNodeId() string {
@@ -2830,7 +3050,7 @@ type GetNodeInfoResponse struct {
 
 func (x *GetNodeInfoResponse) Reset() {
 	*x = GetNodeInfoResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[33]
+	mi := &file_proto_distributed_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2842,7 +3062,7 @@ func (x *GetNodeInfoResponse) String() string {
 func (*GetNodeInfoResponse) ProtoMessage() {}
 
 func (x *GetNodeInfoResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[33]
+	mi := &file_proto_distributed_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2855,7 +3075,7 @@ func (x *GetNodeInfoResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeInfoResponse.ProtoReflect.Descriptor instead.
 func (*GetNodeInfoResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{33}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{34}
 }
 
 func (x *GetNodeInfoResponse) GetNode() *NodeDetail {
@@ -2876,7 +3096,7 @@ type ClusterStatsRequest struct {
 
 func (x *ClusterStatsRequest) Reset() {
 	*x = ClusterStatsRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[34]
+	mi := &file_proto_distributed_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2888,7 +3108,7 @@ func (x *ClusterStatsRequest) String() string {
 func (*ClusterStatsRequest) ProtoMessage() {}
 
 func (x *ClusterStatsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[34]
+	mi := &file_proto_distributed_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2901,7 +3121,7 @@ func (x *ClusterStatsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterStatsRequest.ProtoReflect.Descriptor instead.
 func (*ClusterStatsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{34}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{35}
 }
 
 func (x *ClusterStatsRequest) GetIncludeTaskStats() bool {
@@ -2940,7 +3160,7 @@ type ClusterStatsResponse struct {
 
 func (x *ClusterStatsResponse) Reset() {
 	*x = ClusterStatsResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[35]
+	mi := &file_proto_distributed_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2952,7 +3172,7 @@ func (x *ClusterStatsResponse) String() string {
 func (*ClusterStatsResponse) ProtoMessage() {}
 
 func (x *ClusterStatsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[35]
+	mi := &file_proto_distributed_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2965,7 +3185,7 @@ func (x *ClusterStatsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClusterStatsResponse.ProtoReflect.Descriptor instead.
 func (*ClusterStatsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{35}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{36}
 }
 
 func (x *ClusterStatsResponse) GetTotalNodes() int32 {
@@ -3073,7 +3293,7 @@ type ListTasksRequest struct {
 
 func (x *ListTasksRequest) Reset() {
 	*x = ListTasksRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[36]
+	mi := &file_proto_distributed_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3085,7 +3305,7 @@ func (x *ListTasksRequest) String() string {
 func (*ListTasksRequest) ProtoMessage() {}
 
 func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[36]
+	mi := &file_proto_distributed_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3098,7 +3318,7 @@ func (x *ListTasksRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTasksRequest.ProtoReflect.Descriptor instead.
 func (*ListTasksRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{36}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{37}
 }
 
 func (x *ListTasksRequest) GetFilterStates() []TaskState {
@@ -3148,7 +3368,7 @@ type ListTasksResponse struct {
 
 func (x *ListTasksResponse) Reset() {
 	*x = ListTasksResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[37]
+	mi := &file_proto_distributed_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3160,7 +3380,7 @@ func (x *ListTasksResponse) String() string {
 func (*ListTasksResponse) ProtoMessage() {}
 
 func (x *ListTasksResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[37]
+	mi := &file_proto_distributed_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3173,7 +3393,7 @@ func (x *ListTasksResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListTasksResponse.ProtoReflect.Descriptor instead.
 func (*ListTasksResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{37}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{38}
 }
 
 func (x *ListTasksResponse) GetTasks() []*TaskInfo {
@@ -3210,7 +3430,7 @@ type DrainNodeRequest struct {
 
 func (x *DrainNodeRequest) Reset() {
 	*x = DrainNodeRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[38]
+	mi := &file_proto_distributed_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3222,7 +3442,7 @@ func (x *DrainNodeRequest) String() string {
 func (*DrainNodeRequest) ProtoMessage() {}
 
 func (x *DrainNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[38]
+	mi := &file_proto_distributed_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3235,7 +3455,7 @@ func (x *DrainNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrainNodeRequest.ProtoReflect.Descriptor instead.
 func (*DrainNodeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{38}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{39}
 }
 
 func (x *DrainNodeRequest) GetNodeId() string {
@@ -3278,7 +3498,7 @@ type DrainNodeResponse struct {
 
 func (x *DrainNodeResponse) Reset() {
 	*x = DrainNodeResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[39]
+	mi := &file_proto_distributed_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3290,7 +3510,7 @@ func (x *DrainNodeResponse) String() string {
 func (*DrainNodeResponse) ProtoMessage() {}
 
 func (x *DrainNodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[39]
+	mi := &file_proto_distributed_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3303,7 +3523,7 @@ func (x *DrainNodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DrainNodeResponse.ProtoReflect.Descriptor instead.
 func (*DrainNodeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{39}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{40}
 }
 
 func (x *DrainNodeResponse) GetAccepted() bool {
@@ -3341,7 +3561,7 @@ type EvictNodeRequest struct {
 
 func (x *EvictNodeRequest) Reset() {
 	*x = EvictNodeRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[40]
+	mi := &file_proto_distributed_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3353,7 +3573,7 @@ func (x *EvictNodeRequest) String() string {
 func (*EvictNodeRequest) ProtoMessage() {}
 
 func (x *EvictNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[40]
+	mi := &file_proto_distributed_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3366,7 +3586,7 @@ func (x *EvictNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvictNodeRequest.ProtoReflect.Descriptor instead.
 func (*EvictNodeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{40}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{41}
 }
 
 func (x *EvictNodeRequest) GetNodeId() string {
@@ -3409,7 +3629,7 @@ type EvictNodeResponse struct {
 
 func (x *EvictNodeResponse) Reset() {
 	*x = EvictNodeResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[41]
+	mi := &file_proto_distributed_proto_msgTypes[42]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3421,7 +3641,7 @@ func (x *EvictNodeResponse) String() string {
 func (*EvictNodeResponse) ProtoMessage() {}
 
 func (x *EvictNodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[41]
+	mi := &file_proto_distributed_proto_msgTypes[42]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3434,7 +3654,7 @@ func (x *EvictNodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EvictNodeResponse.ProtoReflect.Descriptor instead.
 func (*EvictNodeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{41}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{42}
 }
 
 func (x *EvictNodeResponse) GetSuccess() bool {
@@ -3470,7 +3690,7 @@ type DisableNodeRequest struct {
 
 func (x *DisableNodeRequest) Reset() {
 	*x = DisableNodeRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[42]
+	mi := &file_proto_distributed_proto_msgTypes[43]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3482,7 +3702,7 @@ func (x *DisableNodeRequest) String() string {
 func (*DisableNodeRequest) ProtoMessage() {}
 
 func (x *DisableNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[42]
+	mi := &file_proto_distributed_proto_msgTypes[43]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3495,7 +3715,7 @@ func (x *DisableNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisableNodeRequest.ProtoReflect.Descriptor instead.
 func (*DisableNodeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{42}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{43}
 }
 
 func (x *DisableNodeRequest) GetNodeId() string {
@@ -3523,7 +3743,7 @@ type DisableNodeResponse struct {
 
 func (x *DisableNodeResponse) Reset() {
 	*x = DisableNodeResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[43]
+	mi := &file_proto_distributed_proto_msgTypes[44]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3535,7 +3755,7 @@ func (x *DisableNodeResponse) String() string {
 func (*DisableNodeResponse) ProtoMessage() {}
 
 func (x *DisableNodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[43]
+	mi := &file_proto_distributed_proto_msgTypes[44]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3548,7 +3768,7 @@ func (x *DisableNodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DisableNodeResponse.ProtoReflect.Descriptor instead.
 func (*DisableNodeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{43}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{44}
 }
 
 func (x *DisableNodeResponse) GetSuccess() bool {
@@ -3576,7 +3796,7 @@ type EnableNodeRequest struct {
 
 func (x *EnableNodeRequest) Reset() {
 	*x = EnableNodeRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[44]
+	mi := &file_proto_distributed_proto_msgTypes[45]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3588,7 +3808,7 @@ func (x *EnableNodeRequest) String() string {
 func (*EnableNodeRequest) ProtoMessage() {}
 
 func (x *EnableNodeRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[44]
+	mi := &file_proto_distributed_proto_msgTypes[45]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3601,7 +3821,7 @@ func (x *EnableNodeRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnableNodeRequest.ProtoReflect.Descriptor instead.
 func (*EnableNodeRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{44}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{45}
 }
 
 func (x *EnableNodeRequest) GetNodeId() string {
@@ -3622,7 +3842,7 @@ type EnableNodeResponse struct {
 
 func (x *EnableNodeResponse) Reset() {
 	*x = EnableNodeResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[45]
+	mi := &file_proto_distributed_proto_msgTypes[46]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3634,7 +3854,7 @@ func (x *EnableNodeResponse) String() string {
 func (*EnableNodeResponse) ProtoMessage() {}
 
 func (x *EnableNodeResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[45]
+	mi := &file_proto_distributed_proto_msgTypes[46]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3647,7 +3867,7 @@ func (x *EnableNodeResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use EnableNodeResponse.ProtoReflect.Descriptor instead.
 func (*EnableNodeResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{45}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{46}
 }
 
 func (x *EnableNodeResponse) GetSuccess() bool {
@@ -3676,7 +3896,7 @@ type GetNodeTopRequest struct {
 
 func (x *GetNodeTopRequest) Reset() {
 	*x = GetNodeTopRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[46]
+	mi := &file_proto_distributed_proto_msgTypes[47]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3688,7 +3908,7 @@ func (x *GetNodeTopRequest) String() string {
 func (*GetNodeTopRequest) ProtoMessage() {}
 
 func (x *GetNodeTopRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[46]
+	mi := &file_proto_distributed_proto_msgTypes[47]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3701,7 +3921,7 @@ func (x *GetNodeTopRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeTopRequest.ProtoReflect.Descriptor instead.
 func (*GetNodeTopRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{46}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{47}
 }
 
 func (x *GetNodeTopRequest) GetNodeId() string {
@@ -3739,7 +3959,7 @@ type NodeTopInfo struct {
 
 func (x *NodeTopInfo) Reset() {
 	*x = NodeTopInfo{}
-	mi := &file_proto_distributed_proto_msgTypes[47]
+	mi := &file_proto_distributed_proto_msgTypes[48]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3751,7 +3971,7 @@ func (x *NodeTopInfo) String() string {
 func (*NodeTopInfo) ProtoMessage() {}
 
 func (x *NodeTopInfo) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[47]
+	mi := &file_proto_distributed_proto_msgTypes[48]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3764,7 +3984,7 @@ func (x *NodeTopInfo) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NodeTopInfo.ProtoReflect.Descriptor instead.
 func (*NodeTopInfo) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{47}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{48}
 }
 
 func (x *NodeTopInfo) GetNodeId() string {
@@ -3862,7 +4082,7 @@ type GetNodeTopResponse struct {
 
 func (x *GetNodeTopResponse) Reset() {
 	*x = GetNodeTopResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[48]
+	mi := &file_proto_distributed_proto_msgTypes[49]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3874,7 +4094,7 @@ func (x *GetNodeTopResponse) String() string {
 func (*GetNodeTopResponse) ProtoMessage() {}
 
 func (x *GetNodeTopResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[48]
+	mi := &file_proto_distributed_proto_msgTypes[49]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3887,7 +4107,7 @@ func (x *GetNodeTopResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeTopResponse.ProtoReflect.Descriptor instead.
 func (*GetNodeTopResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{48}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{49}
 }
 
 func (x *GetNodeTopResponse) GetNodes() []*NodeTopInfo {
@@ -3919,7 +4139,7 @@ type GetNodeLogsRequest struct {
 
 func (x *GetNodeLogsRequest) Reset() {
 	*x = GetNodeLogsRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[49]
+	mi := &file_proto_distributed_proto_msgTypes[50]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3931,7 +4151,7 @@ func (x *GetNodeLogsRequest) String() string {
 func (*GetNodeLogsRequest) ProtoMessage() {}
 
 func (x *GetNodeLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[49]
+	mi := &file_proto_distributed_proto_msgTypes[50]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3944,7 +4164,7 @@ func (x *GetNodeLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeLogsRequest.ProtoReflect.Descriptor instead.
 func (*GetNodeLogsRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{49}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{50}
 }
 
 func (x *GetNodeLogsRequest) GetNodeId() string {
@@ -3995,7 +4215,7 @@ type LogEntry struct {
 
 func (x *LogEntry) Reset() {
 	*x = LogEntry{}
-	mi := &file_proto_distributed_proto_msgTypes[50]
+	mi := &file_proto_distributed_proto_msgTypes[51]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4007,7 +4227,7 @@ func (x *LogEntry) String() string {
 func (*LogEntry) ProtoMessage() {}
 
 func (x *LogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[50]
+	mi := &file_proto_distributed_proto_msgTypes[51]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4020,7 +4240,7 @@ func (x *LogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEntry.ProtoReflect.Descriptor instead.
 func (*LogEntry) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{50}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{51}
 }
 
 func (x *LogEntry) GetTimestamp() int64 {
@@ -4063,7 +4283,7 @@ type GetNodeLogsResponse struct {
 
 func (x *GetNodeLogsResponse) Reset() {
 	*x = GetNodeLogsResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[51]
+	mi := &file_proto_distributed_proto_msgTypes[52]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4075,7 +4295,7 @@ func (x *GetNodeLogsResponse) String() string {
 func (*GetNodeLogsResponse) ProtoMessage() {}
 
 func (x *GetNodeLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[51]
+	mi := &file_proto_distributed_proto_msgTypes[52]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4088,7 +4308,7 @@ func (x *GetNodeLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetNodeLogsResponse.ProtoReflect.Descriptor instead.
 func (*GetNodeLogsResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{51}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{52}
 }
 
 func (x *GetNodeLogsResponse) GetLogs() []*LogEntry {
@@ -4125,7 +4345,7 @@ type AuthRequest struct {
 
 func (x *AuthRequest) Reset() {
 	*x = AuthRequest{}
-	mi := &file_proto_distributed_proto_msgTypes[52]
+	mi := &file_proto_distributed_proto_msgTypes[53]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4137,7 +4357,7 @@ func (x *AuthRequest) String() string {
 func (*AuthRequest) ProtoMessage() {}
 
 func (x *AuthRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[52]
+	mi := &file_proto_distributed_proto_msgTypes[53]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4150,7 +4370,7 @@ func (x *AuthRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthRequest.ProtoReflect.Descriptor instead.
 func (*AuthRequest) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{52}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{53}
 }
 
 func (x *AuthRequest) GetSecret() string {
@@ -4187,7 +4407,7 @@ type AuthResponse struct {
 
 func (x *AuthResponse) Reset() {
 	*x = AuthResponse{}
-	mi := &file_proto_distributed_proto_msgTypes[53]
+	mi := &file_proto_distributed_proto_msgTypes[54]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4199,7 +4419,7 @@ func (x *AuthResponse) String() string {
 func (*AuthResponse) ProtoMessage() {}
 
 func (x *AuthResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_distributed_proto_msgTypes[53]
+	mi := &file_proto_distributed_proto_msgTypes[54]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4212,7 +4432,7 @@ func (x *AuthResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AuthResponse.ProtoReflect.Descriptor instead.
 func (*AuthResponse) Descriptor() ([]byte, []int) {
-	return file_proto_distributed_proto_rawDescGZIP(), []int{53}
+	return file_proto_distributed_proto_rawDescGZIP(), []int{54}
 }
 
 func (x *AuthResponse) GetSuccess() bool {
@@ -4243,11 +4463,471 @@ func (x *AuthResponse) GetExpiresAt() int64 {
 	return 0
 }
 
+// ListMastersRequest 列出 Master 节点请求
+type ListMastersRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	IncludeOffline bool                   `protobuf:"varint,1,opt,name=include_offline,json=includeOffline,proto3" json:"include_offline,omitempty"`                                                                       // 是否包含离线节点
+	LabelSelector  map[string]string      `protobuf:"bytes,2,rep,name=label_selector,json=labelSelector,proto3" json:"label_selector,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // 标签选择器
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ListMastersRequest) Reset() {
+	*x = ListMastersRequest{}
+	mi := &file_proto_distributed_proto_msgTypes[55]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMastersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMastersRequest) ProtoMessage() {}
+
+func (x *ListMastersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[55]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMastersRequest.ProtoReflect.Descriptor instead.
+func (*ListMastersRequest) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{55}
+}
+
+func (x *ListMastersRequest) GetIncludeOffline() bool {
+	if x != nil {
+		return x.IncludeOffline
+	}
+	return false
+}
+
+func (x *ListMastersRequest) GetLabelSelector() map[string]string {
+	if x != nil {
+		return x.LabelSelector
+	}
+	return nil
+}
+
+// ListMastersResponse 列出 Master 节点响应
+type ListMastersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Masters       []*NodeDetail          `protobuf:"bytes,1,rep,name=masters,proto3" json:"masters,omitempty"`                             // Master 节点列表
+	TotalCount    int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`    // Master 节点总数
+	LeaderCount   int32                  `protobuf:"varint,3,opt,name=leader_count,json=leaderCount,proto3" json:"leader_count,omitempty"` // Leader 节点数
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListMastersResponse) Reset() {
+	*x = ListMastersResponse{}
+	mi := &file_proto_distributed_proto_msgTypes[56]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListMastersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListMastersResponse) ProtoMessage() {}
+
+func (x *ListMastersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[56]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListMastersResponse.ProtoReflect.Descriptor instead.
+func (*ListMastersResponse) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{56}
+}
+
+func (x *ListMastersResponse) GetMasters() []*NodeDetail {
+	if x != nil {
+		return x.Masters
+	}
+	return nil
+}
+
+func (x *ListMastersResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+func (x *ListMastersResponse) GetLeaderCount() int32 {
+	if x != nil {
+		return x.LeaderCount
+	}
+	return 0
+}
+
+// ListWorkersRequest 列出 Worker 节点请求
+type ListWorkersRequest struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	FilterStates   []NodeState            `protobuf:"varint,1,rep,packed,name=filter_states,json=filterStates,proto3,enum=distributed.NodeState" json:"filter_states,omitempty"`                                           // 按状态过滤
+	RegionFilter   string                 `protobuf:"bytes,2,opt,name=region_filter,json=regionFilter,proto3" json:"region_filter,omitempty"`                                                                              // 按区域过滤
+	LabelSelector  map[string]string      `protobuf:"bytes,3,rep,name=label_selector,json=labelSelector,proto3" json:"label_selector,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"` // 标签选择器
+	IncludeOffline bool                   `protobuf:"varint,4,opt,name=include_offline,json=includeOffline,proto3" json:"include_offline,omitempty"`                                                                       // 是否包含离线节点
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *ListWorkersRequest) Reset() {
+	*x = ListWorkersRequest{}
+	mi := &file_proto_distributed_proto_msgTypes[57]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkersRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkersRequest) ProtoMessage() {}
+
+func (x *ListWorkersRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[57]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkersRequest.ProtoReflect.Descriptor instead.
+func (*ListWorkersRequest) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{57}
+}
+
+func (x *ListWorkersRequest) GetFilterStates() []NodeState {
+	if x != nil {
+		return x.FilterStates
+	}
+	return nil
+}
+
+func (x *ListWorkersRequest) GetRegionFilter() string {
+	if x != nil {
+		return x.RegionFilter
+	}
+	return ""
+}
+
+func (x *ListWorkersRequest) GetLabelSelector() map[string]string {
+	if x != nil {
+		return x.LabelSelector
+	}
+	return nil
+}
+
+func (x *ListWorkersRequest) GetIncludeOffline() bool {
+	if x != nil {
+		return x.IncludeOffline
+	}
+	return false
+}
+
+// ListWorkersResponse 列出 Worker 节点响应
+type ListWorkersResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Workers       []*NodeDetail          `protobuf:"bytes,1,rep,name=workers,proto3" json:"workers,omitempty"`                                // Worker 节点列表
+	TotalCount    int32                  `protobuf:"varint,2,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`       // Worker 节点总数
+	HealthyCount  int32                  `protobuf:"varint,3,opt,name=healthy_count,json=healthyCount,proto3" json:"healthy_count,omitempty"` // 健康 Worker 节点数
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListWorkersResponse) Reset() {
+	*x = ListWorkersResponse{}
+	mi := &file_proto_distributed_proto_msgTypes[58]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListWorkersResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListWorkersResponse) ProtoMessage() {}
+
+func (x *ListWorkersResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[58]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListWorkersResponse.ProtoReflect.Descriptor instead.
+func (*ListWorkersResponse) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{58}
+}
+
+func (x *ListWorkersResponse) GetWorkers() []*NodeDetail {
+	if x != nil {
+		return x.Workers
+	}
+	return nil
+}
+
+func (x *ListWorkersResponse) GetTotalCount() int32 {
+	if x != nil {
+		return x.TotalCount
+	}
+	return 0
+}
+
+func (x *ListWorkersResponse) GetHealthyCount() int32 {
+	if x != nil {
+		return x.HealthyCount
+	}
+	return 0
+}
+
+// AddTaintRequest 添加污点请求（类似 kubectl taint nodes <node> key=value:effect）
+type AddTaintRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NodeId        string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"` // 节点 ID
+	Taint         *Taint                 `protobuf:"bytes,2,opt,name=taint,proto3" json:"taint,omitempty"`                 // 要添加的污点
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddTaintRequest) Reset() {
+	*x = AddTaintRequest{}
+	mi := &file_proto_distributed_proto_msgTypes[59]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddTaintRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddTaintRequest) ProtoMessage() {}
+
+func (x *AddTaintRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[59]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddTaintRequest.ProtoReflect.Descriptor instead.
+func (*AddTaintRequest) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{59}
+}
+
+func (x *AddTaintRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *AddTaintRequest) GetTaint() *Taint {
+	if x != nil {
+		return x.Taint
+	}
+	return nil
+}
+
+// AddTaintResponse 添加污点响应
+type AddTaintResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 是否成功
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 响应描述
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *AddTaintResponse) Reset() {
+	*x = AddTaintResponse{}
+	mi := &file_proto_distributed_proto_msgTypes[60]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AddTaintResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AddTaintResponse) ProtoMessage() {}
+
+func (x *AddTaintResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[60]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use AddTaintResponse.ProtoReflect.Descriptor instead.
+func (*AddTaintResponse) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{60}
+}
+
+func (x *AddTaintResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *AddTaintResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+// RemoveTaintRequest 移除污点请求
+type RemoveTaintRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	NodeId        string                 `protobuf:"bytes,1,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`       // 节点 ID
+	TaintKey      string                 `protobuf:"bytes,2,opt,name=taint_key,json=taintKey,proto3" json:"taint_key,omitempty"` // 要移除的污点键
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveTaintRequest) Reset() {
+	*x = RemoveTaintRequest{}
+	mi := &file_proto_distributed_proto_msgTypes[61]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveTaintRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveTaintRequest) ProtoMessage() {}
+
+func (x *RemoveTaintRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[61]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveTaintRequest.ProtoReflect.Descriptor instead.
+func (*RemoveTaintRequest) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{61}
+}
+
+func (x *RemoveTaintRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *RemoveTaintRequest) GetTaintKey() string {
+	if x != nil {
+		return x.TaintKey
+	}
+	return ""
+}
+
+// RemoveTaintResponse 移除污点响应
+type RemoveTaintResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"` // 是否成功
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`  // 响应描述
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RemoveTaintResponse) Reset() {
+	*x = RemoveTaintResponse{}
+	mi := &file_proto_distributed_proto_msgTypes[62]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RemoveTaintResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RemoveTaintResponse) ProtoMessage() {}
+
+func (x *RemoveTaintResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_distributed_proto_msgTypes[62]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RemoveTaintResponse.ProtoReflect.Descriptor instead.
+func (*RemoveTaintResponse) Descriptor() ([]byte, []int) {
+	return file_proto_distributed_proto_rawDescGZIP(), []int{62}
+}
+
+func (x *RemoveTaintResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *RemoveTaintResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_proto_distributed_proto protoreflect.FileDescriptor
 
 const file_proto_distributed_proto_rawDesc = "" +
 	"\n" +
-	"\x17proto/distributed.proto\x12\vdistributed\"\xd1\x02\n" +
+	"\x17proto/distributed.proto\x12\vdistributed\"a\n" +
+	"\x05Taint\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value\x120\n" +
+	"\x06effect\x18\x03 \x01(\x0e2\x18.distributed.TaintEffectR\x06effect\"\xa8\x03\n" +
 	"\fBaseNodeInfo\x12\x17\n" +
 	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1a\n" +
 	"\bhostname\x18\x02 \x01(\tR\bhostname\x12\x0e\n" +
@@ -4257,7 +4937,10 @@ const file_proto_distributed_proto_rawDesc = "" +
 	"\x06memory\x18\x06 \x01(\x03R\x06memory\x12\x18\n" +
 	"\aversion\x18\a \x01(\tR\aversion\x12\x16\n" +
 	"\x06region\x18\b \x01(\tR\x06region\x12=\n" +
-	"\x06labels\x18\t \x03(\v2%.distributed.BaseNodeInfo.LabelsEntryR\x06labels\x1a9\n" +
+	"\x06labels\x18\t \x03(\v2%.distributed.BaseNodeInfo.LabelsEntryR\x06labels\x12)\n" +
+	"\x04role\x18\n" +
+	" \x01(\x0e2\x15.distributed.NodeRoleR\x04role\x12*\n" +
+	"\x06taints\x18\v \x03(\v2\x12.distributed.TaintR\x06taints\x1a9\n" +
 	"\vLabelsEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xb2\x02\n" +
@@ -4440,7 +5123,7 @@ const file_proto_distributed_proto_rawDesc = "" +
 	"page_token\x18\x06 \x01(\tR\tpageToken\x1a@\n" +
 	"\x12LabelSelectorEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x93\x04\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xc7\x05\n" +
 	"\n" +
 	"NodeDetail\x126\n" +
 	"\tnode_info\x18\x01 \x01(\v2\x19.distributed.BaseNodeInfoR\bnodeInfo\x12,\n" +
@@ -4455,7 +5138,12 @@ const file_proto_distributed_proto_rawDesc = "" +
 	"\x10connection_state\x18\t \x01(\x0e2\x1c.distributed.ConnectionStateR\x0fconnectionState\x12 \n" +
 	"\vschedulable\x18\n" +
 	" \x01(\bR\vschedulable\x12%\n" +
-	"\x0edisable_reason\x18\v \x01(\tR\rdisableReason\"\x8b\x01\n" +
+	"\x0edisable_reason\x18\v \x01(\tR\rdisableReason\x12)\n" +
+	"\x04role\x18\f \x01(\x0e2\x15.distributed.NodeRoleR\x04role\x12*\n" +
+	"\x06taints\x18\r \x03(\v2\x12.distributed.TaintR\x06taints\x12\x1b\n" +
+	"\tis_leader\x18\x0e \x01(\bR\bisLeader\x12!\n" +
+	"\fcluster_name\x18\x0f \x01(\tR\vclusterName\x12\x1b\n" +
+	"\tpeer_addr\x18\x10 \x01(\tR\bpeerAddr\"\x8b\x01\n" +
 	"\x11ListNodesResponse\x12-\n" +
 	"\x05nodes\x18\x01 \x03(\v2\x17.distributed.NodeDetailR\x05nodes\x12\x1f\n" +
 	"\vtotal_count\x18\x02 \x01(\x05R\n" +
@@ -4585,7 +5273,43 @@ const file_proto_distributed_proto_rawDesc = "" +
 	"\x05token\x18\x02 \x01(\tR\x05token\x12\x18\n" +
 	"\amessage\x18\x03 \x01(\tR\amessage\x12\x1d\n" +
 	"\n" +
-	"expires_at\x18\x04 \x01(\x03R\texpiresAt*\xcb\x01\n" +
+	"expires_at\x18\x04 \x01(\x03R\texpiresAt\"\xda\x01\n" +
+	"\x12ListMastersRequest\x12'\n" +
+	"\x0finclude_offline\x18\x01 \x01(\bR\x0eincludeOffline\x12Y\n" +
+	"\x0elabel_selector\x18\x02 \x03(\v22.distributed.ListMastersRequest.LabelSelectorEntryR\rlabelSelector\x1a@\n" +
+	"\x12LabelSelectorEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8c\x01\n" +
+	"\x13ListMastersResponse\x121\n" +
+	"\amasters\x18\x01 \x03(\v2\x17.distributed.NodeDetailR\amasters\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x05R\n" +
+	"totalCount\x12!\n" +
+	"\fleader_count\x18\x03 \x01(\x05R\vleaderCount\"\xbc\x02\n" +
+	"\x12ListWorkersRequest\x12;\n" +
+	"\rfilter_states\x18\x01 \x03(\x0e2\x16.distributed.NodeStateR\ffilterStates\x12#\n" +
+	"\rregion_filter\x18\x02 \x01(\tR\fregionFilter\x12Y\n" +
+	"\x0elabel_selector\x18\x03 \x03(\v22.distributed.ListWorkersRequest.LabelSelectorEntryR\rlabelSelector\x12'\n" +
+	"\x0finclude_offline\x18\x04 \x01(\bR\x0eincludeOffline\x1a@\n" +
+	"\x12LabelSelectorEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x8e\x01\n" +
+	"\x13ListWorkersResponse\x121\n" +
+	"\aworkers\x18\x01 \x03(\v2\x17.distributed.NodeDetailR\aworkers\x12\x1f\n" +
+	"\vtotal_count\x18\x02 \x01(\x05R\n" +
+	"totalCount\x12#\n" +
+	"\rhealthy_count\x18\x03 \x01(\x05R\fhealthyCount\"T\n" +
+	"\x0fAddTaintRequest\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12(\n" +
+	"\x05taint\x18\x02 \x01(\v2\x12.distributed.TaintR\x05taint\"F\n" +
+	"\x10AddTaintResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"J\n" +
+	"\x12RemoveTaintRequest\x12\x17\n" +
+	"\anode_id\x18\x01 \x01(\tR\x06nodeId\x12\x1b\n" +
+	"\ttaint_key\x18\x02 \x01(\tR\btaintKey\"I\n" +
+	"\x13RemoveTaintResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage*\xcb\x01\n" +
 	"\tNodeState\x12\x1a\n" +
 	"\x16NODE_STATE_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fNODE_STATE_IDLE\x10\x01\x12\x16\n" +
@@ -4613,7 +5337,16 @@ const file_proto_distributed_proto_rawDesc = "" +
 	"\x1aCONNECTION_STATE_CONNECTED\x10\x03\x12\x1a\n" +
 	"\x16CONNECTION_STATE_READY\x10\x04\x12\x1d\n" +
 	"\x19CONNECTION_STATE_DRAINING\x10\x05\x12!\n" +
-	"\x1dCONNECTION_STATE_RECONNECTING\x10\x062\xa1\x03\n" +
+	"\x1dCONNECTION_STATE_RECONNECTING\x10\x06*Q\n" +
+	"\bNodeRole\x12\x19\n" +
+	"\x15NODE_ROLE_UNSPECIFIED\x10\x00\x12\x14\n" +
+	"\x10NODE_ROLE_MASTER\x10\x01\x12\x14\n" +
+	"\x10NODE_ROLE_WORKER\x10\x02*\x8b\x01\n" +
+	"\vTaintEffect\x12\x1c\n" +
+	"\x18TAINT_EFFECT_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18TAINT_EFFECT_NO_SCHEDULE\x10\x01\x12#\n" +
+	"\x1fTAINT_EFFECT_PREFER_NO_SCHEDULE\x10\x02\x12\x1b\n" +
+	"\x17TAINT_EFFECT_NO_EXECUTE\x10\x032\xa1\x03\n" +
 	"\rMasterService\x12K\n" +
 	"\fRegisterNode\x12\x1c.distributed.RegisterRequest\x1a\x1d.distributed.RegisterResponse\x12J\n" +
 	"\tHeartbeat\x12\x1d.distributed.HeartbeatRequest\x1a\x1e.distributed.HeartbeatResponse\x12Q\n" +
@@ -4627,7 +5360,7 @@ const file_proto_distributed_proto_rawDesc = "" +
 	"\vHealthCheck\x12\x1f.distributed.HealthCheckRequest\x1a .distributed.HealthCheckResponse\x12M\n" +
 	"\n" +
 	"QueryTasks\x12\x1e.distributed.QueryTasksRequest\x1a\x1f.distributed.QueryTasksResponse\x12Y\n" +
-	"\x0eUpdateCapacity\x12\".distributed.UpdateCapacityRequest\x1a#.distributed.UpdateCapacityResponse2\xef\x06\n" +
+	"\x0eUpdateCapacity\x12\".distributed.UpdateCapacityRequest\x1a#.distributed.UpdateCapacityResponse2\xae\t\n" +
 	"\fAdminService\x12J\n" +
 	"\tListNodes\x12\x1d.distributed.ListNodesRequest\x1a\x1e.distributed.ListNodesResponse\x12P\n" +
 	"\vGetNodeInfo\x12\x1f.distributed.GetNodeInfoRequest\x1a .distributed.GetNodeInfoResponse\x12V\n" +
@@ -4641,7 +5374,11 @@ const file_proto_distributed_proto_rawDesc = "" +
 	"\n" +
 	"GetNodeTop\x12\x1e.distributed.GetNodeTopRequest\x1a\x1f.distributed.GetNodeTopResponse\x12P\n" +
 	"\vGetNodeLogs\x12\x1f.distributed.GetNodeLogsRequest\x1a .distributed.GetNodeLogsResponse\x12C\n" +
-	"\fAuthenticate\x12\x18.distributed.AuthRequest\x1a\x19.distributed.AuthResponseB0Z.github.com/kamalyes/go-distributed/proto;protob\x06proto3"
+	"\fAuthenticate\x12\x18.distributed.AuthRequest\x1a\x19.distributed.AuthResponse\x12P\n" +
+	"\vListMasters\x12\x1f.distributed.ListMastersRequest\x1a .distributed.ListMastersResponse\x12P\n" +
+	"\vListWorkers\x12\x1f.distributed.ListWorkersRequest\x1a .distributed.ListWorkersResponse\x12G\n" +
+	"\bAddTaint\x12\x1c.distributed.AddTaintRequest\x1a\x1d.distributed.AddTaintResponse\x12P\n" +
+	"\vRemoveTaint\x12\x1f.distributed.RemoveTaintRequest\x1a .distributed.RemoveTaintResponseB0Z.github.com/kamalyes/go-distributed/proto;protob\x06proto3"
 
 var (
 	file_proto_distributed_proto_rawDescOnce sync.Once
@@ -4655,169 +5392,201 @@ func file_proto_distributed_proto_rawDescGZIP() []byte {
 	return file_proto_distributed_proto_rawDescData
 }
 
-var file_proto_distributed_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_proto_distributed_proto_msgTypes = make([]protoimpl.MessageInfo, 61)
+var file_proto_distributed_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
+var file_proto_distributed_proto_msgTypes = make([]protoimpl.MessageInfo, 72)
 var file_proto_distributed_proto_goTypes = []any{
 	(NodeState)(0),                   // 0: distributed.NodeState
 	(TaskState)(0),                   // 1: distributed.TaskState
 	(ConnectionState)(0),             // 2: distributed.ConnectionState
-	(*BaseNodeInfo)(nil),             // 3: distributed.BaseNodeInfo
-	(*NodeCapacity)(nil),             // 4: distributed.NodeCapacity
-	(*RegisterRequest)(nil),          // 5: distributed.RegisterRequest
-	(*RegisterResponse)(nil),         // 6: distributed.RegisterResponse
-	(*HeartbeatRequest)(nil),         // 7: distributed.HeartbeatRequest
-	(*HeartbeatResponse)(nil),        // 8: distributed.HeartbeatResponse
-	(*UnregisterRequest)(nil),        // 9: distributed.UnregisterRequest
-	(*UnregisterResponse)(nil),       // 10: distributed.UnregisterResponse
-	(*TaskInfo)(nil),                 // 11: distributed.TaskInfo
-	(*DispatchTaskRequest)(nil),      // 12: distributed.DispatchTaskRequest
-	(*DispatchTaskResponse)(nil),     // 13: distributed.DispatchTaskResponse
-	(*TaskStatusUpdate)(nil),         // 14: distributed.TaskStatusUpdate
-	(*TaskStatusUpdateResponse)(nil), // 15: distributed.TaskStatusUpdateResponse
-	(*CancelTaskRequest)(nil),        // 16: distributed.CancelTaskRequest
-	(*CancelTaskResponse)(nil),       // 17: distributed.CancelTaskResponse
-	(*QueryTasksRequest)(nil),        // 18: distributed.QueryTasksRequest
-	(*QueryTasksResponse)(nil),       // 19: distributed.QueryTasksResponse
-	(*ConnectRequest)(nil),           // 20: distributed.ConnectRequest
-	(*ConnectResponse)(nil),          // 21: distributed.ConnectResponse
-	(*DisconnectRequest)(nil),        // 22: distributed.DisconnectRequest
-	(*DisconnectResponse)(nil),       // 23: distributed.DisconnectResponse
-	(*DrainCompleteRequest)(nil),     // 24: distributed.DrainCompleteRequest
-	(*DrainCompleteResponse)(nil),    // 25: distributed.DrainCompleteResponse
-	(*UpdateCapacityRequest)(nil),    // 26: distributed.UpdateCapacityRequest
-	(*UpdateCapacityResponse)(nil),   // 27: distributed.UpdateCapacityResponse
-	(*HealthCheckRequest)(nil),       // 28: distributed.HealthCheckRequest
-	(*HealthCheckResponse)(nil),      // 29: distributed.HealthCheckResponse
-	(*MasterCommand)(nil),            // 30: distributed.MasterCommand
-	(*WorkerReport)(nil),             // 31: distributed.WorkerReport
-	(*ListNodesRequest)(nil),         // 32: distributed.ListNodesRequest
-	(*NodeDetail)(nil),               // 33: distributed.NodeDetail
-	(*ListNodesResponse)(nil),        // 34: distributed.ListNodesResponse
-	(*GetNodeInfoRequest)(nil),       // 35: distributed.GetNodeInfoRequest
-	(*GetNodeInfoResponse)(nil),      // 36: distributed.GetNodeInfoResponse
-	(*ClusterStatsRequest)(nil),      // 37: distributed.ClusterStatsRequest
-	(*ClusterStatsResponse)(nil),     // 38: distributed.ClusterStatsResponse
-	(*ListTasksRequest)(nil),         // 39: distributed.ListTasksRequest
-	(*ListTasksResponse)(nil),        // 40: distributed.ListTasksResponse
-	(*DrainNodeRequest)(nil),         // 41: distributed.DrainNodeRequest
-	(*DrainNodeResponse)(nil),        // 42: distributed.DrainNodeResponse
-	(*EvictNodeRequest)(nil),         // 43: distributed.EvictNodeRequest
-	(*EvictNodeResponse)(nil),        // 44: distributed.EvictNodeResponse
-	(*DisableNodeRequest)(nil),       // 45: distributed.DisableNodeRequest
-	(*DisableNodeResponse)(nil),      // 46: distributed.DisableNodeResponse
-	(*EnableNodeRequest)(nil),        // 47: distributed.EnableNodeRequest
-	(*EnableNodeResponse)(nil),       // 48: distributed.EnableNodeResponse
-	(*GetNodeTopRequest)(nil),        // 49: distributed.GetNodeTopRequest
-	(*NodeTopInfo)(nil),              // 50: distributed.NodeTopInfo
-	(*GetNodeTopResponse)(nil),       // 51: distributed.GetNodeTopResponse
-	(*GetNodeLogsRequest)(nil),       // 52: distributed.GetNodeLogsRequest
-	(*LogEntry)(nil),                 // 53: distributed.LogEntry
-	(*GetNodeLogsResponse)(nil),      // 54: distributed.GetNodeLogsResponse
-	(*AuthRequest)(nil),              // 55: distributed.AuthRequest
-	(*AuthResponse)(nil),             // 56: distributed.AuthResponse
-	nil,                              // 57: distributed.BaseNodeInfo.LabelsEntry
-	nil,                              // 58: distributed.TaskInfo.MetadataEntry
-	nil,                              // 59: distributed.ListNodesRequest.LabelSelectorEntry
-	nil,                              // 60: distributed.ClusterStatsResponse.NodesByRegionEntry
-	nil,                              // 61: distributed.ClusterStatsResponse.NodesByStateEntry
-	nil,                              // 62: distributed.LogEntry.FieldsEntry
-	nil,                              // 63: distributed.AuthRequest.MetadataEntry
+	(NodeRole)(0),                    // 3: distributed.NodeRole
+	(TaintEffect)(0),                 // 4: distributed.TaintEffect
+	(*Taint)(nil),                    // 5: distributed.Taint
+	(*BaseNodeInfo)(nil),             // 6: distributed.BaseNodeInfo
+	(*NodeCapacity)(nil),             // 7: distributed.NodeCapacity
+	(*RegisterRequest)(nil),          // 8: distributed.RegisterRequest
+	(*RegisterResponse)(nil),         // 9: distributed.RegisterResponse
+	(*HeartbeatRequest)(nil),         // 10: distributed.HeartbeatRequest
+	(*HeartbeatResponse)(nil),        // 11: distributed.HeartbeatResponse
+	(*UnregisterRequest)(nil),        // 12: distributed.UnregisterRequest
+	(*UnregisterResponse)(nil),       // 13: distributed.UnregisterResponse
+	(*TaskInfo)(nil),                 // 14: distributed.TaskInfo
+	(*DispatchTaskRequest)(nil),      // 15: distributed.DispatchTaskRequest
+	(*DispatchTaskResponse)(nil),     // 16: distributed.DispatchTaskResponse
+	(*TaskStatusUpdate)(nil),         // 17: distributed.TaskStatusUpdate
+	(*TaskStatusUpdateResponse)(nil), // 18: distributed.TaskStatusUpdateResponse
+	(*CancelTaskRequest)(nil),        // 19: distributed.CancelTaskRequest
+	(*CancelTaskResponse)(nil),       // 20: distributed.CancelTaskResponse
+	(*QueryTasksRequest)(nil),        // 21: distributed.QueryTasksRequest
+	(*QueryTasksResponse)(nil),       // 22: distributed.QueryTasksResponse
+	(*ConnectRequest)(nil),           // 23: distributed.ConnectRequest
+	(*ConnectResponse)(nil),          // 24: distributed.ConnectResponse
+	(*DisconnectRequest)(nil),        // 25: distributed.DisconnectRequest
+	(*DisconnectResponse)(nil),       // 26: distributed.DisconnectResponse
+	(*DrainCompleteRequest)(nil),     // 27: distributed.DrainCompleteRequest
+	(*DrainCompleteResponse)(nil),    // 28: distributed.DrainCompleteResponse
+	(*UpdateCapacityRequest)(nil),    // 29: distributed.UpdateCapacityRequest
+	(*UpdateCapacityResponse)(nil),   // 30: distributed.UpdateCapacityResponse
+	(*HealthCheckRequest)(nil),       // 31: distributed.HealthCheckRequest
+	(*HealthCheckResponse)(nil),      // 32: distributed.HealthCheckResponse
+	(*MasterCommand)(nil),            // 33: distributed.MasterCommand
+	(*WorkerReport)(nil),             // 34: distributed.WorkerReport
+	(*ListNodesRequest)(nil),         // 35: distributed.ListNodesRequest
+	(*NodeDetail)(nil),               // 36: distributed.NodeDetail
+	(*ListNodesResponse)(nil),        // 37: distributed.ListNodesResponse
+	(*GetNodeInfoRequest)(nil),       // 38: distributed.GetNodeInfoRequest
+	(*GetNodeInfoResponse)(nil),      // 39: distributed.GetNodeInfoResponse
+	(*ClusterStatsRequest)(nil),      // 40: distributed.ClusterStatsRequest
+	(*ClusterStatsResponse)(nil),     // 41: distributed.ClusterStatsResponse
+	(*ListTasksRequest)(nil),         // 42: distributed.ListTasksRequest
+	(*ListTasksResponse)(nil),        // 43: distributed.ListTasksResponse
+	(*DrainNodeRequest)(nil),         // 44: distributed.DrainNodeRequest
+	(*DrainNodeResponse)(nil),        // 45: distributed.DrainNodeResponse
+	(*EvictNodeRequest)(nil),         // 46: distributed.EvictNodeRequest
+	(*EvictNodeResponse)(nil),        // 47: distributed.EvictNodeResponse
+	(*DisableNodeRequest)(nil),       // 48: distributed.DisableNodeRequest
+	(*DisableNodeResponse)(nil),      // 49: distributed.DisableNodeResponse
+	(*EnableNodeRequest)(nil),        // 50: distributed.EnableNodeRequest
+	(*EnableNodeResponse)(nil),       // 51: distributed.EnableNodeResponse
+	(*GetNodeTopRequest)(nil),        // 52: distributed.GetNodeTopRequest
+	(*NodeTopInfo)(nil),              // 53: distributed.NodeTopInfo
+	(*GetNodeTopResponse)(nil),       // 54: distributed.GetNodeTopResponse
+	(*GetNodeLogsRequest)(nil),       // 55: distributed.GetNodeLogsRequest
+	(*LogEntry)(nil),                 // 56: distributed.LogEntry
+	(*GetNodeLogsResponse)(nil),      // 57: distributed.GetNodeLogsResponse
+	(*AuthRequest)(nil),              // 58: distributed.AuthRequest
+	(*AuthResponse)(nil),             // 59: distributed.AuthResponse
+	(*ListMastersRequest)(nil),       // 60: distributed.ListMastersRequest
+	(*ListMastersResponse)(nil),      // 61: distributed.ListMastersResponse
+	(*ListWorkersRequest)(nil),       // 62: distributed.ListWorkersRequest
+	(*ListWorkersResponse)(nil),      // 63: distributed.ListWorkersResponse
+	(*AddTaintRequest)(nil),          // 64: distributed.AddTaintRequest
+	(*AddTaintResponse)(nil),         // 65: distributed.AddTaintResponse
+	(*RemoveTaintRequest)(nil),       // 66: distributed.RemoveTaintRequest
+	(*RemoveTaintResponse)(nil),      // 67: distributed.RemoveTaintResponse
+	nil,                              // 68: distributed.BaseNodeInfo.LabelsEntry
+	nil,                              // 69: distributed.TaskInfo.MetadataEntry
+	nil,                              // 70: distributed.ListNodesRequest.LabelSelectorEntry
+	nil,                              // 71: distributed.ClusterStatsResponse.NodesByRegionEntry
+	nil,                              // 72: distributed.ClusterStatsResponse.NodesByStateEntry
+	nil,                              // 73: distributed.LogEntry.FieldsEntry
+	nil,                              // 74: distributed.AuthRequest.MetadataEntry
+	nil,                              // 75: distributed.ListMastersRequest.LabelSelectorEntry
+	nil,                              // 76: distributed.ListWorkersRequest.LabelSelectorEntry
 }
 var file_proto_distributed_proto_depIdxs = []int32{
-	57, // 0: distributed.BaseNodeInfo.labels:type_name -> distributed.BaseNodeInfo.LabelsEntry
-	3,  // 1: distributed.RegisterRequest.node_info:type_name -> distributed.BaseNodeInfo
-	4,  // 2: distributed.RegisterRequest.capacity:type_name -> distributed.NodeCapacity
-	0,  // 3: distributed.HeartbeatRequest.state:type_name -> distributed.NodeState
-	4,  // 4: distributed.HeartbeatRequest.capacity:type_name -> distributed.NodeCapacity
-	58, // 5: distributed.TaskInfo.metadata:type_name -> distributed.TaskInfo.MetadataEntry
-	1,  // 6: distributed.TaskInfo.state:type_name -> distributed.TaskState
-	11, // 7: distributed.DispatchTaskRequest.task:type_name -> distributed.TaskInfo
-	1,  // 8: distributed.TaskStatusUpdate.state:type_name -> distributed.TaskState
-	1,  // 9: distributed.CancelTaskResponse.final_state:type_name -> distributed.TaskState
-	1,  // 10: distributed.QueryTasksRequest.filter_states:type_name -> distributed.TaskState
-	11, // 11: distributed.QueryTasksResponse.tasks:type_name -> distributed.TaskInfo
-	3,  // 12: distributed.ConnectRequest.node_info:type_name -> distributed.BaseNodeInfo
-	4,  // 13: distributed.ConnectRequest.capacity:type_name -> distributed.NodeCapacity
-	11, // 14: distributed.ConnectResponse.recovered_tasks:type_name -> distributed.TaskInfo
-	4,  // 15: distributed.UpdateCapacityRequest.capacity:type_name -> distributed.NodeCapacity
-	0,  // 16: distributed.UpdateCapacityResponse.suggested_state:type_name -> distributed.NodeState
-	0,  // 17: distributed.HealthCheckResponse.state:type_name -> distributed.NodeState
-	4,  // 18: distributed.HealthCheckResponse.capacity:type_name -> distributed.NodeCapacity
-	12, // 19: distributed.MasterCommand.dispatch_task:type_name -> distributed.DispatchTaskRequest
-	16, // 20: distributed.MasterCommand.cancel_task:type_name -> distributed.CancelTaskRequest
-	21, // 21: distributed.MasterCommand.connect_response:type_name -> distributed.ConnectResponse
-	23, // 22: distributed.MasterCommand.disconnect_response:type_name -> distributed.DisconnectResponse
-	27, // 23: distributed.MasterCommand.capacity_response:type_name -> distributed.UpdateCapacityResponse
-	20, // 24: distributed.WorkerReport.connect:type_name -> distributed.ConnectRequest
-	7,  // 25: distributed.WorkerReport.heartbeat:type_name -> distributed.HeartbeatRequest
-	14, // 26: distributed.WorkerReport.task_status:type_name -> distributed.TaskStatusUpdate
-	22, // 27: distributed.WorkerReport.disconnect:type_name -> distributed.DisconnectRequest
-	24, // 28: distributed.WorkerReport.drain_complete:type_name -> distributed.DrainCompleteRequest
-	26, // 29: distributed.WorkerReport.capacity_update:type_name -> distributed.UpdateCapacityRequest
-	0,  // 30: distributed.ListNodesRequest.filter_states:type_name -> distributed.NodeState
-	59, // 31: distributed.ListNodesRequest.label_selector:type_name -> distributed.ListNodesRequest.LabelSelectorEntry
-	3,  // 32: distributed.NodeDetail.node_info:type_name -> distributed.BaseNodeInfo
-	0,  // 33: distributed.NodeDetail.state:type_name -> distributed.NodeState
-	4,  // 34: distributed.NodeDetail.capacity:type_name -> distributed.NodeCapacity
-	2,  // 35: distributed.NodeDetail.connection_state:type_name -> distributed.ConnectionState
-	33, // 36: distributed.ListNodesResponse.nodes:type_name -> distributed.NodeDetail
-	33, // 37: distributed.GetNodeInfoResponse.node:type_name -> distributed.NodeDetail
-	60, // 38: distributed.ClusterStatsResponse.nodes_by_region:type_name -> distributed.ClusterStatsResponse.NodesByRegionEntry
-	61, // 39: distributed.ClusterStatsResponse.nodes_by_state:type_name -> distributed.ClusterStatsResponse.NodesByStateEntry
-	1,  // 40: distributed.ListTasksRequest.filter_states:type_name -> distributed.TaskState
-	11, // 41: distributed.ListTasksResponse.tasks:type_name -> distributed.TaskInfo
-	0,  // 42: distributed.NodeTopInfo.state:type_name -> distributed.NodeState
-	50, // 43: distributed.GetNodeTopResponse.nodes:type_name -> distributed.NodeTopInfo
-	62, // 44: distributed.LogEntry.fields:type_name -> distributed.LogEntry.FieldsEntry
-	53, // 45: distributed.GetNodeLogsResponse.logs:type_name -> distributed.LogEntry
-	63, // 46: distributed.AuthRequest.metadata:type_name -> distributed.AuthRequest.MetadataEntry
-	5,  // 47: distributed.MasterService.RegisterNode:input_type -> distributed.RegisterRequest
-	7,  // 48: distributed.MasterService.Heartbeat:input_type -> distributed.HeartbeatRequest
-	9,  // 49: distributed.MasterService.UnregisterNode:input_type -> distributed.UnregisterRequest
-	14, // 50: distributed.MasterService.ReportTaskStatus:input_type -> distributed.TaskStatusUpdate
-	31, // 51: distributed.MasterService.ConnectStream:input_type -> distributed.WorkerReport
-	12, // 52: distributed.WorkerService.DispatchTask:input_type -> distributed.DispatchTaskRequest
-	16, // 53: distributed.WorkerService.CancelTask:input_type -> distributed.CancelTaskRequest
-	28, // 54: distributed.WorkerService.HealthCheck:input_type -> distributed.HealthCheckRequest
-	18, // 55: distributed.WorkerService.QueryTasks:input_type -> distributed.QueryTasksRequest
-	26, // 56: distributed.WorkerService.UpdateCapacity:input_type -> distributed.UpdateCapacityRequest
-	32, // 57: distributed.AdminService.ListNodes:input_type -> distributed.ListNodesRequest
-	35, // 58: distributed.AdminService.GetNodeInfo:input_type -> distributed.GetNodeInfoRequest
-	37, // 59: distributed.AdminService.GetClusterStats:input_type -> distributed.ClusterStatsRequest
-	39, // 60: distributed.AdminService.ListTasks:input_type -> distributed.ListTasksRequest
-	41, // 61: distributed.AdminService.DrainNode:input_type -> distributed.DrainNodeRequest
-	43, // 62: distributed.AdminService.EvictNode:input_type -> distributed.EvictNodeRequest
-	45, // 63: distributed.AdminService.DisableNode:input_type -> distributed.DisableNodeRequest
-	47, // 64: distributed.AdminService.EnableNode:input_type -> distributed.EnableNodeRequest
-	49, // 65: distributed.AdminService.GetNodeTop:input_type -> distributed.GetNodeTopRequest
-	52, // 66: distributed.AdminService.GetNodeLogs:input_type -> distributed.GetNodeLogsRequest
-	55, // 67: distributed.AdminService.Authenticate:input_type -> distributed.AuthRequest
-	6,  // 68: distributed.MasterService.RegisterNode:output_type -> distributed.RegisterResponse
-	8,  // 69: distributed.MasterService.Heartbeat:output_type -> distributed.HeartbeatResponse
-	10, // 70: distributed.MasterService.UnregisterNode:output_type -> distributed.UnregisterResponse
-	15, // 71: distributed.MasterService.ReportTaskStatus:output_type -> distributed.TaskStatusUpdateResponse
-	30, // 72: distributed.MasterService.ConnectStream:output_type -> distributed.MasterCommand
-	13, // 73: distributed.WorkerService.DispatchTask:output_type -> distributed.DispatchTaskResponse
-	17, // 74: distributed.WorkerService.CancelTask:output_type -> distributed.CancelTaskResponse
-	29, // 75: distributed.WorkerService.HealthCheck:output_type -> distributed.HealthCheckResponse
-	19, // 76: distributed.WorkerService.QueryTasks:output_type -> distributed.QueryTasksResponse
-	27, // 77: distributed.WorkerService.UpdateCapacity:output_type -> distributed.UpdateCapacityResponse
-	34, // 78: distributed.AdminService.ListNodes:output_type -> distributed.ListNodesResponse
-	36, // 79: distributed.AdminService.GetNodeInfo:output_type -> distributed.GetNodeInfoResponse
-	38, // 80: distributed.AdminService.GetClusterStats:output_type -> distributed.ClusterStatsResponse
-	40, // 81: distributed.AdminService.ListTasks:output_type -> distributed.ListTasksResponse
-	42, // 82: distributed.AdminService.DrainNode:output_type -> distributed.DrainNodeResponse
-	44, // 83: distributed.AdminService.EvictNode:output_type -> distributed.EvictNodeResponse
-	46, // 84: distributed.AdminService.DisableNode:output_type -> distributed.DisableNodeResponse
-	48, // 85: distributed.AdminService.EnableNode:output_type -> distributed.EnableNodeResponse
-	51, // 86: distributed.AdminService.GetNodeTop:output_type -> distributed.GetNodeTopResponse
-	54, // 87: distributed.AdminService.GetNodeLogs:output_type -> distributed.GetNodeLogsResponse
-	56, // 88: distributed.AdminService.Authenticate:output_type -> distributed.AuthResponse
-	68, // [68:89] is the sub-list for method output_type
-	47, // [47:68] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	4,  // 0: distributed.Taint.effect:type_name -> distributed.TaintEffect
+	68, // 1: distributed.BaseNodeInfo.labels:type_name -> distributed.BaseNodeInfo.LabelsEntry
+	3,  // 2: distributed.BaseNodeInfo.role:type_name -> distributed.NodeRole
+	5,  // 3: distributed.BaseNodeInfo.taints:type_name -> distributed.Taint
+	6,  // 4: distributed.RegisterRequest.node_info:type_name -> distributed.BaseNodeInfo
+	7,  // 5: distributed.RegisterRequest.capacity:type_name -> distributed.NodeCapacity
+	0,  // 6: distributed.HeartbeatRequest.state:type_name -> distributed.NodeState
+	7,  // 7: distributed.HeartbeatRequest.capacity:type_name -> distributed.NodeCapacity
+	69, // 8: distributed.TaskInfo.metadata:type_name -> distributed.TaskInfo.MetadataEntry
+	1,  // 9: distributed.TaskInfo.state:type_name -> distributed.TaskState
+	14, // 10: distributed.DispatchTaskRequest.task:type_name -> distributed.TaskInfo
+	1,  // 11: distributed.TaskStatusUpdate.state:type_name -> distributed.TaskState
+	1,  // 12: distributed.CancelTaskResponse.final_state:type_name -> distributed.TaskState
+	1,  // 13: distributed.QueryTasksRequest.filter_states:type_name -> distributed.TaskState
+	14, // 14: distributed.QueryTasksResponse.tasks:type_name -> distributed.TaskInfo
+	6,  // 15: distributed.ConnectRequest.node_info:type_name -> distributed.BaseNodeInfo
+	7,  // 16: distributed.ConnectRequest.capacity:type_name -> distributed.NodeCapacity
+	14, // 17: distributed.ConnectResponse.recovered_tasks:type_name -> distributed.TaskInfo
+	7,  // 18: distributed.UpdateCapacityRequest.capacity:type_name -> distributed.NodeCapacity
+	0,  // 19: distributed.UpdateCapacityResponse.suggested_state:type_name -> distributed.NodeState
+	0,  // 20: distributed.HealthCheckResponse.state:type_name -> distributed.NodeState
+	7,  // 21: distributed.HealthCheckResponse.capacity:type_name -> distributed.NodeCapacity
+	15, // 22: distributed.MasterCommand.dispatch_task:type_name -> distributed.DispatchTaskRequest
+	19, // 23: distributed.MasterCommand.cancel_task:type_name -> distributed.CancelTaskRequest
+	24, // 24: distributed.MasterCommand.connect_response:type_name -> distributed.ConnectResponse
+	26, // 25: distributed.MasterCommand.disconnect_response:type_name -> distributed.DisconnectResponse
+	30, // 26: distributed.MasterCommand.capacity_response:type_name -> distributed.UpdateCapacityResponse
+	23, // 27: distributed.WorkerReport.connect:type_name -> distributed.ConnectRequest
+	10, // 28: distributed.WorkerReport.heartbeat:type_name -> distributed.HeartbeatRequest
+	17, // 29: distributed.WorkerReport.task_status:type_name -> distributed.TaskStatusUpdate
+	25, // 30: distributed.WorkerReport.disconnect:type_name -> distributed.DisconnectRequest
+	27, // 31: distributed.WorkerReport.drain_complete:type_name -> distributed.DrainCompleteRequest
+	29, // 32: distributed.WorkerReport.capacity_update:type_name -> distributed.UpdateCapacityRequest
+	0,  // 33: distributed.ListNodesRequest.filter_states:type_name -> distributed.NodeState
+	70, // 34: distributed.ListNodesRequest.label_selector:type_name -> distributed.ListNodesRequest.LabelSelectorEntry
+	6,  // 35: distributed.NodeDetail.node_info:type_name -> distributed.BaseNodeInfo
+	0,  // 36: distributed.NodeDetail.state:type_name -> distributed.NodeState
+	7,  // 37: distributed.NodeDetail.capacity:type_name -> distributed.NodeCapacity
+	2,  // 38: distributed.NodeDetail.connection_state:type_name -> distributed.ConnectionState
+	3,  // 39: distributed.NodeDetail.role:type_name -> distributed.NodeRole
+	5,  // 40: distributed.NodeDetail.taints:type_name -> distributed.Taint
+	36, // 41: distributed.ListNodesResponse.nodes:type_name -> distributed.NodeDetail
+	36, // 42: distributed.GetNodeInfoResponse.node:type_name -> distributed.NodeDetail
+	71, // 43: distributed.ClusterStatsResponse.nodes_by_region:type_name -> distributed.ClusterStatsResponse.NodesByRegionEntry
+	72, // 44: distributed.ClusterStatsResponse.nodes_by_state:type_name -> distributed.ClusterStatsResponse.NodesByStateEntry
+	1,  // 45: distributed.ListTasksRequest.filter_states:type_name -> distributed.TaskState
+	14, // 46: distributed.ListTasksResponse.tasks:type_name -> distributed.TaskInfo
+	0,  // 47: distributed.NodeTopInfo.state:type_name -> distributed.NodeState
+	53, // 48: distributed.GetNodeTopResponse.nodes:type_name -> distributed.NodeTopInfo
+	73, // 49: distributed.LogEntry.fields:type_name -> distributed.LogEntry.FieldsEntry
+	56, // 50: distributed.GetNodeLogsResponse.logs:type_name -> distributed.LogEntry
+	74, // 51: distributed.AuthRequest.metadata:type_name -> distributed.AuthRequest.MetadataEntry
+	75, // 52: distributed.ListMastersRequest.label_selector:type_name -> distributed.ListMastersRequest.LabelSelectorEntry
+	36, // 53: distributed.ListMastersResponse.masters:type_name -> distributed.NodeDetail
+	0,  // 54: distributed.ListWorkersRequest.filter_states:type_name -> distributed.NodeState
+	76, // 55: distributed.ListWorkersRequest.label_selector:type_name -> distributed.ListWorkersRequest.LabelSelectorEntry
+	36, // 56: distributed.ListWorkersResponse.workers:type_name -> distributed.NodeDetail
+	5,  // 57: distributed.AddTaintRequest.taint:type_name -> distributed.Taint
+	8,  // 58: distributed.MasterService.RegisterNode:input_type -> distributed.RegisterRequest
+	10, // 59: distributed.MasterService.Heartbeat:input_type -> distributed.HeartbeatRequest
+	12, // 60: distributed.MasterService.UnregisterNode:input_type -> distributed.UnregisterRequest
+	17, // 61: distributed.MasterService.ReportTaskStatus:input_type -> distributed.TaskStatusUpdate
+	34, // 62: distributed.MasterService.ConnectStream:input_type -> distributed.WorkerReport
+	15, // 63: distributed.WorkerService.DispatchTask:input_type -> distributed.DispatchTaskRequest
+	19, // 64: distributed.WorkerService.CancelTask:input_type -> distributed.CancelTaskRequest
+	31, // 65: distributed.WorkerService.HealthCheck:input_type -> distributed.HealthCheckRequest
+	21, // 66: distributed.WorkerService.QueryTasks:input_type -> distributed.QueryTasksRequest
+	29, // 67: distributed.WorkerService.UpdateCapacity:input_type -> distributed.UpdateCapacityRequest
+	35, // 68: distributed.AdminService.ListNodes:input_type -> distributed.ListNodesRequest
+	38, // 69: distributed.AdminService.GetNodeInfo:input_type -> distributed.GetNodeInfoRequest
+	40, // 70: distributed.AdminService.GetClusterStats:input_type -> distributed.ClusterStatsRequest
+	42, // 71: distributed.AdminService.ListTasks:input_type -> distributed.ListTasksRequest
+	44, // 72: distributed.AdminService.DrainNode:input_type -> distributed.DrainNodeRequest
+	46, // 73: distributed.AdminService.EvictNode:input_type -> distributed.EvictNodeRequest
+	48, // 74: distributed.AdminService.DisableNode:input_type -> distributed.DisableNodeRequest
+	50, // 75: distributed.AdminService.EnableNode:input_type -> distributed.EnableNodeRequest
+	52, // 76: distributed.AdminService.GetNodeTop:input_type -> distributed.GetNodeTopRequest
+	55, // 77: distributed.AdminService.GetNodeLogs:input_type -> distributed.GetNodeLogsRequest
+	58, // 78: distributed.AdminService.Authenticate:input_type -> distributed.AuthRequest
+	60, // 79: distributed.AdminService.ListMasters:input_type -> distributed.ListMastersRequest
+	62, // 80: distributed.AdminService.ListWorkers:input_type -> distributed.ListWorkersRequest
+	64, // 81: distributed.AdminService.AddTaint:input_type -> distributed.AddTaintRequest
+	66, // 82: distributed.AdminService.RemoveTaint:input_type -> distributed.RemoveTaintRequest
+	9,  // 83: distributed.MasterService.RegisterNode:output_type -> distributed.RegisterResponse
+	11, // 84: distributed.MasterService.Heartbeat:output_type -> distributed.HeartbeatResponse
+	13, // 85: distributed.MasterService.UnregisterNode:output_type -> distributed.UnregisterResponse
+	18, // 86: distributed.MasterService.ReportTaskStatus:output_type -> distributed.TaskStatusUpdateResponse
+	33, // 87: distributed.MasterService.ConnectStream:output_type -> distributed.MasterCommand
+	16, // 88: distributed.WorkerService.DispatchTask:output_type -> distributed.DispatchTaskResponse
+	20, // 89: distributed.WorkerService.CancelTask:output_type -> distributed.CancelTaskResponse
+	32, // 90: distributed.WorkerService.HealthCheck:output_type -> distributed.HealthCheckResponse
+	22, // 91: distributed.WorkerService.QueryTasks:output_type -> distributed.QueryTasksResponse
+	30, // 92: distributed.WorkerService.UpdateCapacity:output_type -> distributed.UpdateCapacityResponse
+	37, // 93: distributed.AdminService.ListNodes:output_type -> distributed.ListNodesResponse
+	39, // 94: distributed.AdminService.GetNodeInfo:output_type -> distributed.GetNodeInfoResponse
+	41, // 95: distributed.AdminService.GetClusterStats:output_type -> distributed.ClusterStatsResponse
+	43, // 96: distributed.AdminService.ListTasks:output_type -> distributed.ListTasksResponse
+	45, // 97: distributed.AdminService.DrainNode:output_type -> distributed.DrainNodeResponse
+	47, // 98: distributed.AdminService.EvictNode:output_type -> distributed.EvictNodeResponse
+	49, // 99: distributed.AdminService.DisableNode:output_type -> distributed.DisableNodeResponse
+	51, // 100: distributed.AdminService.EnableNode:output_type -> distributed.EnableNodeResponse
+	54, // 101: distributed.AdminService.GetNodeTop:output_type -> distributed.GetNodeTopResponse
+	57, // 102: distributed.AdminService.GetNodeLogs:output_type -> distributed.GetNodeLogsResponse
+	59, // 103: distributed.AdminService.Authenticate:output_type -> distributed.AuthResponse
+	61, // 104: distributed.AdminService.ListMasters:output_type -> distributed.ListMastersResponse
+	63, // 105: distributed.AdminService.ListWorkers:output_type -> distributed.ListWorkersResponse
+	65, // 106: distributed.AdminService.AddTaint:output_type -> distributed.AddTaintResponse
+	67, // 107: distributed.AdminService.RemoveTaint:output_type -> distributed.RemoveTaintResponse
+	83, // [83:108] is the sub-list for method output_type
+	58, // [58:83] is the sub-list for method input_type
+	58, // [58:58] is the sub-list for extension type_name
+	58, // [58:58] is the sub-list for extension extendee
+	0,  // [0:58] is the sub-list for field type_name
 }
 
 func init() { file_proto_distributed_proto_init() }
@@ -4825,7 +5594,7 @@ func file_proto_distributed_proto_init() {
 	if File_proto_distributed_proto != nil {
 		return
 	}
-	file_proto_distributed_proto_msgTypes[27].OneofWrappers = []any{
+	file_proto_distributed_proto_msgTypes[28].OneofWrappers = []any{
 		(*MasterCommand_DispatchTask)(nil),
 		(*MasterCommand_CancelTask)(nil),
 		(*MasterCommand_DrainCommand)(nil),
@@ -4833,7 +5602,7 @@ func file_proto_distributed_proto_init() {
 		(*MasterCommand_DisconnectResponse)(nil),
 		(*MasterCommand_CapacityResponse)(nil),
 	}
-	file_proto_distributed_proto_msgTypes[28].OneofWrappers = []any{
+	file_proto_distributed_proto_msgTypes[29].OneofWrappers = []any{
 		(*WorkerReport_Connect)(nil),
 		(*WorkerReport_Heartbeat)(nil),
 		(*WorkerReport_TaskStatus)(nil),
@@ -4846,8 +5615,8 @@ func file_proto_distributed_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_distributed_proto_rawDesc), len(file_proto_distributed_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   61,
+			NumEnums:      5,
+			NumMessages:   72,
 			NumExtensions: 0,
 			NumServices:   3,
 		},

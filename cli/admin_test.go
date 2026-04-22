@@ -78,6 +78,22 @@ func (m *mockAdminServiceClient) Authenticate(ctx context.Context, in *pb.AuthRe
 	return &pb.AuthResponse{Success: true, Token: "mock-token"}, m.err
 }
 
+func (m *mockAdminServiceClient) ListMasters(ctx context.Context, in *pb.ListMastersRequest, opts ...grpc.CallOption) (*pb.ListMastersResponse, error) {
+	return &pb.ListMastersResponse{}, m.err
+}
+
+func (m *mockAdminServiceClient) ListWorkers(ctx context.Context, in *pb.ListWorkersRequest, opts ...grpc.CallOption) (*pb.ListWorkersResponse, error) {
+	return &pb.ListWorkersResponse{}, m.err
+}
+
+func (m *mockAdminServiceClient) AddTaint(ctx context.Context, in *pb.AddTaintRequest, opts ...grpc.CallOption) (*pb.AddTaintResponse, error) {
+	return &pb.AddTaintResponse{}, m.err
+}
+
+func (m *mockAdminServiceClient) RemoveTaint(ctx context.Context, in *pb.RemoveTaintRequest, opts ...grpc.CallOption) (*pb.RemoveTaintResponse, error) {
+	return &pb.RemoveTaintResponse{}, m.err
+}
+
 func newTestClientWithMock(mock pb.AdminServiceClient) *Client {
 	return &Client{
 		client:       mock,

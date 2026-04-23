@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-27 10:00:00
- * @FilePath: \go-distributed\common\token.go
+ * @FilePath: \kronos-cluster\common\token.go
  * @Description: 令牌管理器 - JWT 令牌生成与验证
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

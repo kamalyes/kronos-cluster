@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 09:20:03
- * @FilePath: \go-distributed\master\selector_test.go
+ * @FilePath: \kronos-cluster\master\selector_test.go
  * @Description: 节点选择策略单元测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -13,7 +13,7 @@ package master
 import (
 	"testing"
 
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-toolbox/pkg/random"
 	"github.com/stretchr/testify/assert"
 )

@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-27 10:00:00
- * @FilePath: \go-distributed\common\strategy.go
+ * @FilePath: \kronos-cluster\common\strategy.go
  * @Description: 策略与传输类型常量定义
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

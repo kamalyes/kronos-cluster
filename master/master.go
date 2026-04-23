@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-29 10:00:00
- * @FilePath: \go-distributed\master\master.go
+ * @FilePath: \kronos-cluster\master\master.go
  * @Description: Master 主控制器 - 管理节点注册、心跳和健康检查
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -15,8 +15,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
-	"github.com/kamalyes/go-distributed/transport"
+	"github.com/kamalyes/kronos-cluster/common"
+	"github.com/kamalyes/kronos-cluster/transport"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/errorx"
 	"github.com/kamalyes/go-toolbox/pkg/mathx"
@@ -95,9 +95,9 @@ func NewMaster[T common.NodeInfo](
 	config.NodeOfflineThreshold = mathx.IfDefaultAndClamp(config.NodeOfflineThreshold, 5*time.Minute, 30*time.Second, 30*time.Minute)
 	config.HeartbeatMaxFailures = mathx.IfDefaultAndClamp(config.HeartbeatMaxFailures, 3, 1, 10)
 	config.CandidateNodeCount = mathx.IfDefaultAndClamp(config.CandidateNodeCount, 10, 1, 1024)
-	config.Secret = mathx.IfEmpty(config.Secret, "go-distributed-secret-key")
+	config.Secret = mathx.IfEmpty(config.Secret, "kronos-cluster-secret-key")
 	config.TokenExpiration = mathx.IfLeZero(config.TokenExpiration, 24*time.Hour)
-	config.TokenIssuer = mathx.IfEmpty(config.TokenIssuer, "go-distributed-master")
+	config.TokenIssuer = mathx.IfEmpty(config.TokenIssuer, "kronos-cluster-master")
 	config.SelectStrategy = mathx.IfEmpty(config.SelectStrategy, common.SelectStrategyRoundRobin)
 
 	selector := NewSelector[T](config.SelectStrategy, nil)

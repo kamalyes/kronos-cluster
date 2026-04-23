@@ -15,7 +15,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/errorx"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"

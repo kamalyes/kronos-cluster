@@ -9,9 +9,9 @@
  * 而非直接指定地址和端口来连接 Master，提高安全性和便捷性
  *
  * 配置文件格式支持 JSON 和 YAML，默认路径:
- *   - $HOME/.go-distributed/config.yaml
- *   - $HOME/.go-distributed/config.json
- *   - /etc/go-distributed/config.yaml
+ *   - $HOME/.kronos-cluster/config.yaml
+ *   - $HOME/.kronos-cluster/config.json
+ *   - /etc/kronos-cluster/config.yaml
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
  */
@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	DefaultConfigDir  = ".go-distributed"
+	DefaultConfigDir  = ".kronos-cluster"
 	DefaultConfigFile = "config.yaml"
 )
 
@@ -264,7 +264,7 @@ func getDefaultConfigPath() string {
 	if err == nil && homeDir != "" {
 		return filepath.Join(homeDir, DefaultConfigDir, DefaultConfigFile)
 	}
-	return filepath.Join("/etc", "go-distributed", DefaultConfigFile)
+	return filepath.Join("/etc", "kronos-cluster", DefaultConfigFile)
 }
 
 // ControlPlaneConfigFromMasterConfig 从 MasterConfig 创建 ControlPlaneConfig

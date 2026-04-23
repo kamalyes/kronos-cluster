@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 00:00:00
- * @FilePath: \go-distributed\cli\admin.go
+ * @FilePath: \kronos-cluster\cli\admin.go
  * @Description: CLI 客户端 - AdminService API 调用
  *
  * 提供类似 kubectl 的集群管理 API:
@@ -26,8 +26,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/kamalyes/go-distributed/common"
-	pb "github.com/kamalyes/go-distributed/proto"
+	"github.com/kamalyes/kronos-cluster/common"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 )
 
 // ListNodes 列出节点（类似 kubectl get nodes）

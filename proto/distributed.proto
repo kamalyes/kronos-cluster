@@ -61,7 +61,10 @@ syntax = "proto3";
 
 package distributed;
 
-option go_package = "github.com/kamalyes/go-distributed/proto;proto";
+option go_package = "github.com/kamalyes/kronos-cluster/proto;proto";
+
+import "google/api/annotations.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
 
 // =====================================================================
 // 枚举定义
@@ -764,6 +767,70 @@ message RemoveTaintResponse {
 }
 
 // =====================================================================
+// Web 管理扩展消息
+// =====================================================================
+
+// ClusterOverviewRequest 集群概览请求
+message ClusterOverviewRequest {}
+
+// ClusterOverviewResponse 集群概览响应
+message ClusterOverviewResponse {
+  int32 total_nodes = 1;                // 总节点数
+  int32 healthy_nodes = 2;              // 健康节点数
+  int32 offline_nodes = 3;              // 离线节点数
+  int32 draining_nodes = 4;             // 排空中节点数
+  double avg_cpu_usage = 5;             // 平均 CPU 使用率
+  double avg_memory_usage = 6;          // 平均内存使用率
+  int32 total_running_tasks = 7;        // 总运行任务数
+  int32 total_pending_tasks = 8;        // 总待调度任务数
+  int32 total_succeeded_tasks_24h = 9;  // 24 小时内成功任务数
+  int32 total_failed_tasks_24h = 10;    // 24 小时内失败任务数
+  map<string, int32> nodes_by_region = 11; // 按区域统计节点数
+  map<string, int32> nodes_by_state = 12;  // 按状态统计节点数
+  int32 total_master_nodes = 13;        // Master 节点数
+  int32 total_worker_nodes = 14;        // Worker 节点数
+  int64 cluster_uptime_ms = 15;         // 集群运行时长（毫秒）
+}
+
+// UpdateNodeLabelsRequest 更新节点标签请求（类似 kubectl label）
+message UpdateNodeLabelsRequest {
+  string node_id = 1;                   // 节点 ID
+  map<string, string> labels = 2;       // 要更新/添加的标签键值对
+}
+
+// UpdateNodeLabelsResponse 更新节点标签响应
+message UpdateNodeLabelsResponse {
+  bool success = 1;                     // 是否成功
+  string message = 2;                   // 响应描述
+}
+
+// AdminCancelTaskRequest 管理端取消任务请求
+message AdminCancelTaskRequest {
+  string task_id = 1;                   // 任务 ID
+  string reason = 2;                    // 取消原因
+  bool force = 3;                       // 是否强制取消
+}
+
+// AdminCancelTaskResponse 管理端取消任务响应
+message AdminCancelTaskResponse {
+  bool success = 1;                     // 是否成功
+  string message = 2;                   // 响应描述
+}
+
+// AdminRetryTaskRequest 管理端重试任务请求
+message AdminRetryTaskRequest {
+  string task_id = 1;                   // 任务 ID
+  string target_node_id = 2;            // 目标节点 ID（空=自动选择）
+}
+
+// AdminRetryTaskResponse 管理端重试任务响应
+message AdminRetryTaskResponse {
+  bool accepted = 1;                    // 是否接受
+  string message = 2;                   // 响应描述
+  string new_task_id = 3;               // 新任务 ID
+}
+
+// =====================================================================
 // 管理服务定义
 // =====================================================================
 
@@ -772,61 +839,157 @@ message RemoveTaintResponse {
 // 可由运维工具、CLI、Dashboard 等调用
 // 当 Master 启用安全认证时，所有请求需携带有效的认证令牌
 service AdminService {
+  // ClusterOverview 集群概览
+  rpc ClusterOverview(ClusterOverviewRequest) returns (ClusterOverviewResponse) {
+    option (google.api.http) = { 
+      get: "/v1/cluster/overview"
+    };
+  }
+
   // ListNodes 列出节点（类似 kubectl get nodes）
   // 支持按状态、区域、标签过滤，支持分页
-  rpc ListNodes(ListNodesRequest) returns (ListNodesResponse);
+  rpc ListNodes(ListNodesRequest) returns (ListNodesResponse) {
+    option (google.api.http) = {
+      get: "/v1/cluster/nodes"
+    };
+  }
 
   // GetNodeInfo 获取节点详情
   // 返回节点的完整信息，包括容量、连接状态、任务数等
-  rpc GetNodeInfo(GetNodeInfoRequest) returns (GetNodeInfoResponse);
+  rpc GetNodeInfo(GetNodeInfoRequest) returns (GetNodeInfoResponse) {
+    option (google.api.http) = {
+      get: "/v1/cluster/nodes/{node_id}"
+    };
+  }
 
   // GetClusterStats 获取集群统计（类似 kubectl top nodes）
   // 返回集群级别的聚合统计信息
-  rpc GetClusterStats(ClusterStatsRequest) returns (ClusterStatsResponse);
+  rpc GetClusterStats(ClusterStatsRequest) returns (ClusterStatsResponse) {
+    option (google.api.http) = {
+      get: "/v1/cluster/stats"
+    };
+  }
 
   // ListTasks 列出任务（类似 kubectl get jobs）
   // 支持按状态、类型、节点过滤，支持分页
-  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse);
+  rpc ListTasks(ListTasksRequest) returns (ListTasksResponse) {
+    option (google.api.http) = { 
+      get: "/v1/cluster/tasks"
+    };
+  }
 
   // DrainNode 排空节点（类似 kubectl drain）
   // 通知指定节点停止接受新任务，等待已有任务完成后下线
-  rpc DrainNode(DrainNodeRequest) returns (DrainNodeResponse);
+  rpc DrainNode(DrainNodeRequest) returns (DrainNodeResponse) {
+    option (google.api.http) = { 
+      put: "/v1/cluster/nodes/{node_id}/drain"
+      body: "*"
+    };
+  }
 
   // EvictNode 驱逐节点（类似 kubectl delete node）
   // 立即断开节点连接并将其从集群中移除
-  rpc EvictNode(EvictNodeRequest) returns (EvictNodeResponse);
+  rpc EvictNode(EvictNodeRequest) returns (EvictNodeResponse) {
+    option (google.api.http) = { 
+      put: "/v1/cluster/nodes/{node_id}/evict"
+      body: "*"
+    };
+  }
 
   // DisableNode 停用节点（类似 kubectl cordon）
   // 标记节点为不可调度，不再接受新任务
-  rpc DisableNode(DisableNodeRequest) returns (DisableNodeResponse);
+  rpc DisableNode(DisableNodeRequest) returns (DisableNodeResponse) {
+    option (google.api.http) = { 
+      put: "/v1/cluster/nodes/{node_id}/disable"
+      body: "*"
+    };
+  }
 
   // EnableNode 启用节点（类似 kubectl uncordon）
   // 恢复节点为可调度状态
-  rpc EnableNode(EnableNodeRequest) returns (EnableNodeResponse);
+  rpc EnableNode(EnableNodeRequest) returns (EnableNodeResponse) {
+    option (google.api.http) = { 
+      put: "/v1/cluster/nodes/{node_id}/enable"
+      body: "*"
+    };
+  }
 
   // GetNodeTop 获取节点资源 Top（类似 kubectl top node）
   // 返回节点的实时资源使用情况
-  rpc GetNodeTop(GetNodeTopRequest) returns (GetNodeTopResponse);
+  rpc GetNodeTop(GetNodeTopRequest) returns (GetNodeTopResponse) {
+    option (google.api.http) = { 
+      get: "/v1/cluster/nodes/{node_id}/top"
+    };
+  }
 
   // GetNodeLogs 获取节点日志（类似 kubectl logs）
   // 获取指定节点的运行日志
-  rpc GetNodeLogs(GetNodeLogsRequest) returns (GetNodeLogsResponse);
+  rpc GetNodeLogs(GetNodeLogsRequest) returns (GetNodeLogsResponse) {
+    option (google.api.http) = {
+      get: "/v1/cluster/nodes/{node_id}/logs"
+    };
+  }
 
   // Authenticate CLI 客户端认证
   // 通过预共享密钥获取访问令牌
-  rpc Authenticate(AuthRequest) returns (AuthResponse);
+  rpc Authenticate(AuthRequest) returns (AuthResponse) {
+    option (google.api.http) = {
+      post: "/v1/cluster/auth"
+      body: "*"
+    };
+  }
 
   // ListMasters 列出 Master 节点（类似 kubectl get nodes -l role=master）
   // 返回集群中所有 Master 节点信息
-  rpc ListMasters(ListMastersRequest) returns (ListMastersResponse);
+  rpc ListMasters(ListMastersRequest) returns (ListMastersResponse) {
+    option (google.api.http) = { 
+      get: "/v1/cluster/masters"
+    };
+  }
 
   // ListWorkers 列出 Worker 节点（类似 kubectl get nodes -l role=worker）
   // 返回集群中所有 Worker 节点信息
-  rpc ListWorkers(ListWorkersRequest) returns (ListWorkersResponse);
+  rpc ListWorkers(ListWorkersRequest) returns (ListWorkersResponse) {
+    option (google.api.http) = {
+      get: "/v1/cluster/workers"
+    };
+  }
 
   // AddTaint 给节点添加污点（类似 kubectl taint）
-  rpc AddTaint(AddTaintRequest) returns (AddTaintResponse);
+  rpc AddTaint(AddTaintRequest) returns (AddTaintResponse) {
+    option (google.api.http) = {
+      put: "/v1/cluster/nodes/{node_id}/taints"
+      body: "*"};
+  }
 
   // RemoveTaint 移除节点污点
-  rpc RemoveTaint(RemoveTaintRequest) returns (RemoveTaintResponse);
+  rpc RemoveTaint(RemoveTaintRequest) returns (RemoveTaintResponse) {
+    option (google.api.http) = {
+      delete: "/v1/cluster/nodes/{node_id}/taints/{taint_key}"
+    };
+  }
+
+  // UpdateNodeLabels 更新节点标签（类似 kubectl label）
+  rpc UpdateNodeLabels(UpdateNodeLabelsRequest) returns (UpdateNodeLabelsResponse) {
+    option (google.api.http) = {
+      put: "/v1/cluster/nodes/{node_id}/labels"
+      body: "*"
+    };
+  }
+
+  // AdminCancelTask 管理端取消任务
+  rpc AdminCancelTask(AdminCancelTaskRequest) returns (AdminCancelTaskResponse) {
+    option (google.api.http) = {
+      put: "/v1/cluster/tasks/{task_id}/cancel"
+      body: "*"
+    };
+  }
+
+  // AdminRetryTask 管理端重试任务
+  rpc AdminRetryTask(AdminRetryTaskRequest) returns (AdminRetryTaskResponse) {
+    option (google.api.http) = {
+      put: "/v1/cluster/tasks/{task_id}/retry"
+      body: "*"
+    };
+  }
 }

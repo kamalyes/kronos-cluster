@@ -3,7 +3,7 @@
  * @Date: 2026-03-31 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-31 00:00:00
- * @FilePath: \go-distributed\common\config_generator.go
+ * @FilePath: \kronos-cluster\common\config_generator.go
  * @Description: 配置文件生成器 - 自动生成控制平面配置文件
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -63,7 +63,7 @@ func GenerateConfigFileWithOptions(options *ConfigFileOptions, log logger.ILogge
 		return
 	}
 
-	configDir := filepath.Join(homeDir, ".go-distributed")
+	configDir := filepath.Join(homeDir, ".kronos-cluster")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		log.ErrorKV("Failed to create config directory", "error", err.Error())
 		return

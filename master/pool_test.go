@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-29 13:26:15
- * @FilePath: \go-distributed\master\pool_test.go
+ * @FilePath: \kronos-cluster\master\pool_test.go
  * @Description: 节点池管理单元测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -11,7 +11,7 @@
 package master
 
 import (
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/random"
 	"github.com/stretchr/testify/assert"

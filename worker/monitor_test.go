@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 09:13:07
- * @FilePath: \go-distributed\worker\monitor_test.go
+ * @FilePath: \kronos-cluster\worker\monitor_test.go
  * @Description: 资源监控器单元测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

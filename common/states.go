@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 10:06:15
- * @FilePath: \go-distributed\common\states.go
+ * @FilePath: \kronos-cluster\common\states.go
  * @Description: 节点状态枚举定义
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

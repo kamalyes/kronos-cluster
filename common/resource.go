@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 11:30:08
- * @FilePath: \go-distributed\common\resource.go
+ * @FilePath: \kronos-cluster\common\resource.go
  * @Description: 资源使用率模型定义
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

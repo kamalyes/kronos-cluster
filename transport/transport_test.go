@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 10:16:55
- * @FilePath: \go-distributed\transport\transport_test.go
+ * @FilePath: \kronos-cluster\transport\transport_test.go
  * @Description: 传输层接口与数据结构单元测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -13,7 +13,7 @@ package transport
 import (
 	"testing"
 
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-toolbox/pkg/random"
 	"github.com/stretchr/testify/assert"
 )

@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-27 18:15:56
- * @FilePath: \go-distributed\common\node.go
+ * @FilePath: \kronos-cluster\common\node.go
  * @Description: 节点信息模型定义 - 支持多主多从架构和污点(Taint)机制
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

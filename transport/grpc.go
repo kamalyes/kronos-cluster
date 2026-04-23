@@ -17,8 +17,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
-	pb "github.com/kamalyes/go-distributed/proto"
+	"github.com/kamalyes/kronos-cluster/common"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/errorx"
 	"github.com/kamalyes/go-toolbox/pkg/mathx"
@@ -40,11 +40,11 @@ const (
 
 // GRPCMasterTransport gRPC Master 端传输层实现
 type GRPCMasterTransport struct {
-	config              *common.MasterConfig
-	grpcServer          *grpc.Server
-	service             *grpcMasterService
-	adminServiceHandler pb.AdminServiceServer
-	logger              logger.ILogger
+	config                      *common.MasterConfig
+	grpcServer                  *grpc.Server
+	service                     *grpcMasterService
+	adminServiceHandler         pb.AdminServiceServer
+	logger                      logger.ILogger
 	running             *syncx.Bool
 	cancelFunc          context.CancelFunc
 	workerConns         sync.Map

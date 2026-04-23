@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-27 10:00:00
- * @FilePath: \go-distributed\transport\redis_test.go
+ * @FilePath: \kronos-cluster\transport\redis_test.go
  * @Description: Redis 传输层单元测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -13,7 +13,7 @@ package transport
 import (
 	"testing"
 
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/random"
 	"github.com/stretchr/testify/assert"

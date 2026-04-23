@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-29 10:00:00
- * @FilePath: \go-distributed\worker\connection_manager.go
+ * @FilePath: \kronos-cluster\worker\connection_manager.go
  * @Description: Worker 连接管理器 - 管理与 Master 的连接生命周期
  *
  * 核心职责:
@@ -27,8 +27,8 @@ package worker
 import (
 	"context"
 	"fmt"
-	"github.com/kamalyes/go-distributed/common"
-	"github.com/kamalyes/go-distributed/transport"
+	"github.com/kamalyes/kronos-cluster/common"
+	"github.com/kamalyes/kronos-cluster/transport"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/errorx"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"

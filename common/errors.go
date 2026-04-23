@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-29 16:25:56
- * @FilePath: \go-distributed\common\errors.go
+ * @FilePath: \kronos-cluster\common\errors.go
  * @Description: 统一错误信息常量定义 - 含错误码
  *
  * 错误码规范:

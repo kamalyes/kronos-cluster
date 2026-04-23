@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-29 15:21:16
- * @FilePath: \go-distributed\worker\worker.go
+ * @FilePath: \kronos-cluster\worker\worker.go
  * @Description: Worker 工作节点 - 负责注册、心跳和资源监控
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -17,8 +17,8 @@ import (
 	"runtime"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
-	"github.com/kamalyes/go-distributed/transport"
+	"github.com/kamalyes/kronos-cluster/common"
+	"github.com/kamalyes/kronos-cluster/transport"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/errorx"
 	"github.com/kamalyes/go-toolbox/pkg/mathx"

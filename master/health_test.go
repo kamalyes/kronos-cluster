@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-27 10:00:00
- * @FilePath: \go-distributed\master\health_test.go
+ * @FilePath: \kronos-cluster\master\health_test.go
  * @Description: 健康检查器单元测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -14,7 +14,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-logger"
 	"github.com/stretchr/testify/assert"
 )

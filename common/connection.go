@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-31 11:56:15
- * @FilePath: \go-distributed\common\connection.go
+ * @FilePath: \kronos-cluster\common\connection.go
  * @Description: 连接生命周期模型 - 连接状态、重连策略、状态机
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

@@ -11,13 +11,12 @@ package cli
 
 import (
 	"context"
-	"testing"
-
-	"github.com/kamalyes/go-distributed/common"
-	pb "github.com/kamalyes/go-distributed/proto"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"
+	"github.com/kamalyes/kronos-cluster/common"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
+	"testing"
 )
 
 type mockAdminServiceClient struct {
@@ -92,6 +91,22 @@ func (m *mockAdminServiceClient) AddTaint(ctx context.Context, in *pb.AddTaintRe
 
 func (m *mockAdminServiceClient) RemoveTaint(ctx context.Context, in *pb.RemoveTaintRequest, opts ...grpc.CallOption) (*pb.RemoveTaintResponse, error) {
 	return &pb.RemoveTaintResponse{}, m.err
+}
+
+func (m *mockAdminServiceClient) UpdateNodeLabels(ctx context.Context, in *pb.UpdateNodeLabelsRequest, opts ...grpc.CallOption) (*pb.UpdateNodeLabelsResponse, error) {
+	return &pb.UpdateNodeLabelsResponse{}, m.err
+}
+
+func (m *mockAdminServiceClient) AdminCancelTask(ctx context.Context, in *pb.AdminCancelTaskRequest, opts ...grpc.CallOption) (*pb.AdminCancelTaskResponse, error) {
+	return &pb.AdminCancelTaskResponse{}, m.err
+}
+
+func (m *mockAdminServiceClient) AdminRetryTask(ctx context.Context, in *pb.AdminRetryTaskRequest, opts ...grpc.CallOption) (*pb.AdminRetryTaskResponse, error) {
+	return &pb.AdminRetryTaskResponse{}, m.err
+}
+
+func (m *mockAdminServiceClient) ClusterOverview(ctx context.Context, in *pb.ClusterOverviewRequest, opts ...grpc.CallOption) (*pb.ClusterOverviewResponse, error) {
+	return &pb.ClusterOverviewResponse{}, m.err
 }
 
 func newTestClientWithMock(mock pb.AdminServiceClient) *Client {

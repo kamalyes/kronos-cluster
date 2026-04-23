@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 15:06:01
- * @FilePath: \go-distributed\cli\reconnect.go
+ * @FilePath: \kronos-cluster\cli\reconnect.go
  * @Description: CLI 客户端 - 自动重连与健康检查
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -13,8 +13,8 @@ package cli
 import (
 	"context"
 	"fmt"
-	"github.com/kamalyes/go-distributed/common"
-	pb "github.com/kamalyes/go-distributed/proto"
+	"github.com/kamalyes/kronos-cluster/common"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"

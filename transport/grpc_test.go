@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 11:26:33
- * @FilePath: \go-distributed\transport\grpc_test.go
+ * @FilePath: \kronos-cluster\transport\grpc_test.go
  * @Description: gRPC 传输层单元测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -12,8 +12,8 @@ package transport
 
 import (
 	"context"
-	"github.com/kamalyes/go-distributed/common"
-	pb "github.com/kamalyes/go-distributed/proto"
+	"github.com/kamalyes/kronos-cluster/common"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/random"
 	"github.com/stretchr/testify/assert"

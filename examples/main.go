@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-29 19:09:16
- * @FilePath: \go-distributed\examples\main.go
+ * @FilePath: \kronos-cluster\examples\main.go
  * @Description: 主程序 - 启动 Master 主控制器
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -15,9 +15,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
-	"github.com/kamalyes/go-distributed/logger"
-	"github.com/kamalyes/go-distributed/master"
+	"github.com/kamalyes/kronos-cluster/common"
+	"github.com/kamalyes/kronos-cluster/logger"
+	"github.com/kamalyes/kronos-cluster/master"
 	"github.com/kamalyes/go-toolbox/pkg/errorx"
 	"github.com/kamalyes/go-toolbox/pkg/random"
 )
@@ -37,7 +37,7 @@ func main() {
 		MasterID:             "master-001",
 		Hostname:             "master-node-1",
 		AdvertiseAddress:     "127.0.0.1",
-		ClusterName:          "go-distributed-cluster",
+		ClusterName:          "kronos-cluster-cluster",
 		GRPCPort:             9001,
 		TransportType:        common.TransportTypeGRPC,
 		HeartbeatInterval:    5 * time.Second,
@@ -50,7 +50,7 @@ func main() {
 		ControlPlane: &common.ControlPlaneConfig{
 			ServerAddr:  "localhost:9001",
 			EnableAuth:  true,
-			ClusterName: "go-distributed-cluster",
+			ClusterName: "kronos-cluster-cluster",
 		},
 	}, converter, master.NewMemoryTaskStore(log), log)
 	if err != nil {

@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 15:28:11
- * @FilePath: \go-distributed\master\task_store_test.go
+ * @FilePath: \kronos-cluster\master\task_store_test.go
  * @Description: Master TaskStore测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -12,7 +12,7 @@ package master
 
 import (
 	"context"
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/random"
 	"github.com/stretchr/testify/assert"

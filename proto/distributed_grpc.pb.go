@@ -664,21 +664,25 @@ var WorkerService_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	AdminService_ListNodes_FullMethodName       = "/distributed.AdminService/ListNodes"
-	AdminService_GetNodeInfo_FullMethodName     = "/distributed.AdminService/GetNodeInfo"
-	AdminService_GetClusterStats_FullMethodName = "/distributed.AdminService/GetClusterStats"
-	AdminService_ListTasks_FullMethodName       = "/distributed.AdminService/ListTasks"
-	AdminService_DrainNode_FullMethodName       = "/distributed.AdminService/DrainNode"
-	AdminService_EvictNode_FullMethodName       = "/distributed.AdminService/EvictNode"
-	AdminService_DisableNode_FullMethodName     = "/distributed.AdminService/DisableNode"
-	AdminService_EnableNode_FullMethodName      = "/distributed.AdminService/EnableNode"
-	AdminService_GetNodeTop_FullMethodName      = "/distributed.AdminService/GetNodeTop"
-	AdminService_GetNodeLogs_FullMethodName     = "/distributed.AdminService/GetNodeLogs"
-	AdminService_Authenticate_FullMethodName    = "/distributed.AdminService/Authenticate"
-	AdminService_ListMasters_FullMethodName     = "/distributed.AdminService/ListMasters"
-	AdminService_ListWorkers_FullMethodName     = "/distributed.AdminService/ListWorkers"
-	AdminService_AddTaint_FullMethodName        = "/distributed.AdminService/AddTaint"
-	AdminService_RemoveTaint_FullMethodName     = "/distributed.AdminService/RemoveTaint"
+	AdminService_ClusterOverview_FullMethodName  = "/distributed.AdminService/ClusterOverview"
+	AdminService_ListNodes_FullMethodName        = "/distributed.AdminService/ListNodes"
+	AdminService_GetNodeInfo_FullMethodName      = "/distributed.AdminService/GetNodeInfo"
+	AdminService_GetClusterStats_FullMethodName  = "/distributed.AdminService/GetClusterStats"
+	AdminService_ListTasks_FullMethodName        = "/distributed.AdminService/ListTasks"
+	AdminService_DrainNode_FullMethodName        = "/distributed.AdminService/DrainNode"
+	AdminService_EvictNode_FullMethodName        = "/distributed.AdminService/EvictNode"
+	AdminService_DisableNode_FullMethodName      = "/distributed.AdminService/DisableNode"
+	AdminService_EnableNode_FullMethodName       = "/distributed.AdminService/EnableNode"
+	AdminService_GetNodeTop_FullMethodName       = "/distributed.AdminService/GetNodeTop"
+	AdminService_GetNodeLogs_FullMethodName      = "/distributed.AdminService/GetNodeLogs"
+	AdminService_Authenticate_FullMethodName     = "/distributed.AdminService/Authenticate"
+	AdminService_ListMasters_FullMethodName      = "/distributed.AdminService/ListMasters"
+	AdminService_ListWorkers_FullMethodName      = "/distributed.AdminService/ListWorkers"
+	AdminService_AddTaint_FullMethodName         = "/distributed.AdminService/AddTaint"
+	AdminService_RemoveTaint_FullMethodName      = "/distributed.AdminService/RemoveTaint"
+	AdminService_UpdateNodeLabels_FullMethodName = "/distributed.AdminService/UpdateNodeLabels"
+	AdminService_AdminCancelTask_FullMethodName  = "/distributed.AdminService/AdminCancelTask"
+	AdminService_AdminRetryTask_FullMethodName   = "/distributed.AdminService/AdminRetryTask"
 )
 
 // AdminServiceClient is the client API for AdminService service.
@@ -690,6 +694,8 @@ const (
 // 可由运维工具、CLI、Dashboard 等调用
 // 当 Master 启用安全认证时，所有请求需携带有效的认证令牌
 type AdminServiceClient interface {
+	// ClusterOverview 集群概览
+	ClusterOverview(ctx context.Context, in *ClusterOverviewRequest, opts ...grpc.CallOption) (*ClusterOverviewResponse, error)
 	// ListNodes 列出节点（类似 kubectl get nodes）
 	// 支持按状态、区域、标签过滤，支持分页
 	ListNodes(ctx context.Context, in *ListNodesRequest, opts ...grpc.CallOption) (*ListNodesResponse, error)
@@ -733,6 +739,12 @@ type AdminServiceClient interface {
 	AddTaint(ctx context.Context, in *AddTaintRequest, opts ...grpc.CallOption) (*AddTaintResponse, error)
 	// RemoveTaint 移除节点污点
 	RemoveTaint(ctx context.Context, in *RemoveTaintRequest, opts ...grpc.CallOption) (*RemoveTaintResponse, error)
+	// UpdateNodeLabels 更新节点标签（类似 kubectl label）
+	UpdateNodeLabels(ctx context.Context, in *UpdateNodeLabelsRequest, opts ...grpc.CallOption) (*UpdateNodeLabelsResponse, error)
+	// AdminCancelTask 管理端取消任务
+	AdminCancelTask(ctx context.Context, in *AdminCancelTaskRequest, opts ...grpc.CallOption) (*AdminCancelTaskResponse, error)
+	// AdminRetryTask 管理端重试任务
+	AdminRetryTask(ctx context.Context, in *AdminRetryTaskRequest, opts ...grpc.CallOption) (*AdminRetryTaskResponse, error)
 }
 
 type adminServiceClient struct {
@@ -741,6 +753,16 @@ type adminServiceClient struct {
 
 func NewAdminServiceClient(cc grpc.ClientConnInterface) AdminServiceClient {
 	return &adminServiceClient{cc}
+}
+
+func (c *adminServiceClient) ClusterOverview(ctx context.Context, in *ClusterOverviewRequest, opts ...grpc.CallOption) (*ClusterOverviewResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(ClusterOverviewResponse)
+	err := c.cc.Invoke(ctx, AdminService_ClusterOverview_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *adminServiceClient) ListNodes(ctx context.Context, in *ListNodesRequest, opts ...grpc.CallOption) (*ListNodesResponse, error) {
@@ -893,6 +915,36 @@ func (c *adminServiceClient) RemoveTaint(ctx context.Context, in *RemoveTaintReq
 	return out, nil
 }
 
+func (c *adminServiceClient) UpdateNodeLabels(ctx context.Context, in *UpdateNodeLabelsRequest, opts ...grpc.CallOption) (*UpdateNodeLabelsResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(UpdateNodeLabelsResponse)
+	err := c.cc.Invoke(ctx, AdminService_UpdateNodeLabels_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) AdminCancelTask(ctx context.Context, in *AdminCancelTaskRequest, opts ...grpc.CallOption) (*AdminCancelTaskResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminCancelTaskResponse)
+	err := c.cc.Invoke(ctx, AdminService_AdminCancelTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *adminServiceClient) AdminRetryTask(ctx context.Context, in *AdminRetryTaskRequest, opts ...grpc.CallOption) (*AdminRetryTaskResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(AdminRetryTaskResponse)
+	err := c.cc.Invoke(ctx, AdminService_AdminRetryTask_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // AdminServiceServer is the server API for AdminService service.
 // All implementations must embed UnimplementedAdminServiceServer
 // for forward compatibility.
@@ -902,6 +954,8 @@ func (c *adminServiceClient) RemoveTaint(ctx context.Context, in *RemoveTaintReq
 // 可由运维工具、CLI、Dashboard 等调用
 // 当 Master 启用安全认证时，所有请求需携带有效的认证令牌
 type AdminServiceServer interface {
+	// ClusterOverview 集群概览
+	ClusterOverview(context.Context, *ClusterOverviewRequest) (*ClusterOverviewResponse, error)
 	// ListNodes 列出节点（类似 kubectl get nodes）
 	// 支持按状态、区域、标签过滤，支持分页
 	ListNodes(context.Context, *ListNodesRequest) (*ListNodesResponse, error)
@@ -945,6 +999,12 @@ type AdminServiceServer interface {
 	AddTaint(context.Context, *AddTaintRequest) (*AddTaintResponse, error)
 	// RemoveTaint 移除节点污点
 	RemoveTaint(context.Context, *RemoveTaintRequest) (*RemoveTaintResponse, error)
+	// UpdateNodeLabels 更新节点标签（类似 kubectl label）
+	UpdateNodeLabels(context.Context, *UpdateNodeLabelsRequest) (*UpdateNodeLabelsResponse, error)
+	// AdminCancelTask 管理端取消任务
+	AdminCancelTask(context.Context, *AdminCancelTaskRequest) (*AdminCancelTaskResponse, error)
+	// AdminRetryTask 管理端重试任务
+	AdminRetryTask(context.Context, *AdminRetryTaskRequest) (*AdminRetryTaskResponse, error)
 	mustEmbedUnimplementedAdminServiceServer()
 }
 
@@ -955,6 +1015,9 @@ type AdminServiceServer interface {
 // pointer dereference when methods are called.
 type UnimplementedAdminServiceServer struct{}
 
+func (UnimplementedAdminServiceServer) ClusterOverview(context.Context, *ClusterOverviewRequest) (*ClusterOverviewResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method ClusterOverview not implemented")
+}
 func (UnimplementedAdminServiceServer) ListNodes(context.Context, *ListNodesRequest) (*ListNodesResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ListNodes not implemented")
 }
@@ -1000,6 +1063,15 @@ func (UnimplementedAdminServiceServer) AddTaint(context.Context, *AddTaintReques
 func (UnimplementedAdminServiceServer) RemoveTaint(context.Context, *RemoveTaintRequest) (*RemoveTaintResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method RemoveTaint not implemented")
 }
+func (UnimplementedAdminServiceServer) UpdateNodeLabels(context.Context, *UpdateNodeLabelsRequest) (*UpdateNodeLabelsResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method UpdateNodeLabels not implemented")
+}
+func (UnimplementedAdminServiceServer) AdminCancelTask(context.Context, *AdminCancelTaskRequest) (*AdminCancelTaskResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdminCancelTask not implemented")
+}
+func (UnimplementedAdminServiceServer) AdminRetryTask(context.Context, *AdminRetryTaskRequest) (*AdminRetryTaskResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method AdminRetryTask not implemented")
+}
 func (UnimplementedAdminServiceServer) mustEmbedUnimplementedAdminServiceServer() {}
 func (UnimplementedAdminServiceServer) testEmbeddedByValue()                      {}
 
@@ -1019,6 +1091,24 @@ func RegisterAdminServiceServer(s grpc.ServiceRegistrar, srv AdminServiceServer)
 		t.testEmbeddedByValue()
 	}
 	s.RegisterService(&AdminService_ServiceDesc, srv)
+}
+
+func _AdminService_ClusterOverview_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ClusterOverviewRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).ClusterOverview(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_ClusterOverview_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).ClusterOverview(ctx, req.(*ClusterOverviewRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _AdminService_ListNodes_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -1291,6 +1381,60 @@ func _AdminService_RemoveTaint_Handler(srv interface{}, ctx context.Context, dec
 	return interceptor(ctx, in, info, handler)
 }
 
+func _AdminService_UpdateNodeLabels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(UpdateNodeLabelsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).UpdateNodeLabels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_UpdateNodeLabels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).UpdateNodeLabels(ctx, req.(*UpdateNodeLabelsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_AdminCancelTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminCancelTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).AdminCancelTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_AdminCancelTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).AdminCancelTask(ctx, req.(*AdminCancelTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _AdminService_AdminRetryTask_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(AdminRetryTaskRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(AdminServiceServer).AdminRetryTask(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: AdminService_AdminRetryTask_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(AdminServiceServer).AdminRetryTask(ctx, req.(*AdminRetryTaskRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // AdminService_ServiceDesc is the grpc.ServiceDesc for AdminService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1298,6 +1442,10 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "distributed.AdminService",
 	HandlerType: (*AdminServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ClusterOverview",
+			Handler:    _AdminService_ClusterOverview_Handler,
+		},
 		{
 			MethodName: "ListNodes",
 			Handler:    _AdminService_ListNodes_Handler,
@@ -1357,6 +1505,18 @@ var AdminService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "RemoveTaint",
 			Handler:    _AdminService_RemoveTaint_Handler,
+		},
+		{
+			MethodName: "UpdateNodeLabels",
+			Handler:    _AdminService_UpdateNodeLabels_Handler,
+		},
+		{
+			MethodName: "AdminCancelTask",
+			Handler:    _AdminService_AdminCancelTask_Handler,
+		},
+		{
+			MethodName: "AdminRetryTask",
+			Handler:    _AdminService_AdminRetryTask_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

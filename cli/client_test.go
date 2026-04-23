@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 18:09:18
- * @FilePath: \go-distributed\cli\client_test.go
+ * @FilePath: \kronos-cluster\cli\client_test.go
  * @Description: CLI 客户端集成测试 - 启动真实 Master gRPC 服务端，验证端到端通信
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -17,9 +17,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
-	"github.com/kamalyes/go-distributed/master"
-	pb "github.com/kamalyes/go-distributed/proto"
+	"github.com/kamalyes/kronos-cluster/common"
+	"github.com/kamalyes/kronos-cluster/master"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 	"github.com/kamalyes/go-logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"

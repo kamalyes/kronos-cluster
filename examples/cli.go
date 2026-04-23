@@ -3,7 +3,7 @@
  * @Date: 2026-03-31 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-31 00:00:00
- * @FilePath: \go-distributed\examples\cli.go
+ * @FilePath: \kronos-cluster\examples\cli.go
  * @Description: 命令行工具 - 使用配置文件与分布式系统交互
  *
  * 配置文件格式 (YAML):
@@ -37,10 +37,10 @@ import (
 	"os"
 	"time"
 
-	"github.com/kamalyes/go-distributed/cli"
-	"github.com/kamalyes/go-distributed/common"
-	"github.com/kamalyes/go-distributed/logger"
-	pb "github.com/kamalyes/go-distributed/proto"
+	"github.com/kamalyes/kronos-cluster/cli"
+	"github.com/kamalyes/kronos-cluster/common"
+	"github.com/kamalyes/kronos-cluster/logger"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 	"github.com/kamalyes/go-toolbox/pkg/random"
 )
 
@@ -56,7 +56,7 @@ func main() {
 
 	if configPath == "" {
 		homeDir, _ := os.UserHomeDir()
-		configPath = fmt.Sprintf("%s/.go-distributed/config.yaml", homeDir)
+		configPath = fmt.Sprintf("%s/.kronos-cluster/config.yaml", homeDir)
 	}
 
 	cpFile, err := common.LoadControlPlaneConfig(configPath)
@@ -268,5 +268,5 @@ func printUsage() {
 	fmt.Println("  cli get stats         Get cluster statistics")
 	fmt.Println("")
 	fmt.Println("Options:")
-	fmt.Println("  --config PATH         Path to config file (default: ~/.go-distributed/config.yaml)")
+	fmt.Println("  --config PATH         Path to config file (default: ~/.kronos-cluster/config.yaml)")
 }

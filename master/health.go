@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-27 10:00:00
- * @FilePath: \go-distributed\master\health.go
+ * @FilePath: \kronos-cluster\master\health.go
  * @Description: 健康检查器 - 定期检测节点心跳超时并标记不健康/恢复
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -12,7 +12,7 @@ package master
 
 import (
 	"context"
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"
 	"time"

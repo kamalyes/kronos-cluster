@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 13:10:32
- * @FilePath: \go-distributed\worker\task_executor.go
+ * @FilePath: \kronos-cluster\worker\task_executor.go
  * @Description: Worker 任务执行器 - 负责任务接收、执行、进度上报和取消
  *
  * 核心职责:
@@ -24,8 +24,8 @@ package worker
 import (
 	"context"
 	"fmt"
-	"github.com/kamalyes/go-distributed/common"
-	"github.com/kamalyes/go-distributed/transport"
+	"github.com/kamalyes/kronos-cluster/common"
+	"github.com/kamalyes/kronos-cluster/transport"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"
 	"sync"

@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 00:00:00
- * @FilePath: \go-distributed\master\master_test.go
+ * @FilePath: \kronos-cluster\master\master_test.go
  * @Description: Master 主控制器单元测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -11,7 +11,7 @@
 package master
 
 import (
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-logger"
 	"github.com/stretchr/testify/assert"
 	"testing"
@@ -89,9 +89,9 @@ func TestNewMasterDefaultConfig(t *testing.T) {
 	assert.Equal(t, 5*time.Second, m.GetConfig().HeartbeatInterval)
 	assert.Equal(t, 15*time.Second, m.GetConfig().HeartbeatTimeout)
 	assert.Equal(t, 3, m.GetConfig().HeartbeatMaxFailures)
-	assert.Equal(t, "go-distributed-secret-key", m.GetConfig().Secret)
+	assert.Equal(t, "kronos-cluster-secret-key", m.GetConfig().Secret)
 	assert.Equal(t, 24*time.Hour, m.GetConfig().TokenExpiration)
-	assert.Equal(t, "go-distributed-master", m.GetConfig().TokenIssuer)
+	assert.Equal(t, "kronos-cluster-master", m.GetConfig().TokenIssuer)
 }
 
 func TestNewMasterCustomConfig(t *testing.T) {

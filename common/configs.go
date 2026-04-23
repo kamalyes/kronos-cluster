@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-29 13:16:28
- * @FilePath: \go-distributed\common\configs.go
+ * @FilePath: \kronos-cluster\common\configs.go
  * @Description: Master 和 Worker 配置定义
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

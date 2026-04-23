@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 13:30:30
- * @FilePath: \go-distributed\common\convert.go
+ * @FilePath: \kronos-cluster\common\convert.go
  * @Description: Proto ↔ Common 类型转换函数
  *
  * 集中管理 protobuf 枚举/消息与 common 包类型之间的双向转换，
@@ -22,7 +22,7 @@ package common
 import (
 	"time"
 
-	pb "github.com/kamalyes/go-distributed/proto"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 )
 
 // =====================================================================

@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-27 18:22:02
- * @FilePath: \go-distributed\worker\monitor.go
+ * @FilePath: \kronos-cluster\worker\monitor.go
  * @Description: 资源监控器 - 采集 CPU、内存、网络、负载等系统指标
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -12,7 +12,7 @@ package worker
 
 import (
 	"context"
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"
 	"github.com/shirou/gopsutil/v3/cpu"

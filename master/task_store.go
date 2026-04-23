@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-31 11:59:57
- * @FilePath: \go-distributed\master\task_store.go
+ * @FilePath: \kronos-cluster\master\task_store.go
  * @Description: 任务持久化存储接口与实现 - 支持可插拔存储后端
  *
  * 设计理念:
@@ -32,7 +32,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"
 	"github.com/redis/go-redis/v9"

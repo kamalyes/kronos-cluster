@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 13:15:55
- * @FilePath: \go-distributed\master\admin_service.go
+ * @FilePath: \kronos-cluster\master\admin_service.go
  * @Description: Master AdminService gRPC 服务端实现
  *
  * 实现 proto AdminServiceServer 接口，提供集群管理 API：
@@ -19,6 +19,10 @@
  *   - GetNodeTop:     类似 kubectl top node
  *   - GetNodeLogs:    类似 kubectl logs
  *   - Authenticate:   CLI 客户端认证
+ *   - ClusterOverview: 集群概览
+ *   - UpdateNodeLabels: 类似 kubectl label
+ *   - AdminCancelTask: 管理端取消任务
+ *   - AdminRetryTask:  管理端重试任务
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
  */
@@ -29,8 +33,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
-	pb "github.com/kamalyes/go-distributed/proto"
+	"github.com/kamalyes/kronos-cluster/common"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/errorx"
 )
@@ -43,6 +47,7 @@ type AdminService struct {
 	store       TaskStore
 	logger      logger.ILogger
 	authManager *common.AuthManager
+	startTime   time.Time
 }
 
 // NewAdminService 创建管理服务
@@ -59,6 +64,7 @@ func NewAdminService(
 		store:       store,
 		logger:      log,
 		authManager: authManager,
+		startTime:   time.Now(),
 	}
 }
 
@@ -618,6 +624,110 @@ func (s *AdminService) RemoveTaint(ctx context.Context, req *pb.RemoveTaintReque
 	}
 
 	return nil, fmt.Errorf(common.ErrNodeNotFound, req.NodeId)
+}
+
+// ClusterOverview 集群概览
+func (s *AdminService) ClusterOverview(ctx context.Context, req *pb.ClusterOverviewRequest) (*pb.ClusterOverviewResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	workerNodes := s.pool.GetAll()
+	masterNodes := s.masterPool.GetAllAsNodeInfo()
+
+	collector := common.NewClusterStatsCollector()
+	collector.Collect(workerNodes, true)
+
+	resp := &pb.ClusterOverviewResponse{
+		TotalNodes:       int32(len(workerNodes) + len(masterNodes)),
+		HealthyNodes:     collector.HealthyNodes,
+		OfflineNodes:     collector.OfflineNodes,
+		DrainingNodes:    collector.DrainingNodes,
+		AvgCpuUsage:      collector.AvgCPU(),
+		AvgMemoryUsage:   collector.AvgMemory(),
+		NodesByRegion:    collector.NodesByRegion,
+		NodesByState:     collector.NodesByState,
+		TotalMasterNodes: int32(len(masterNodes)),
+		TotalWorkerNodes: int32(len(workerNodes)),
+		ClusterUptimeMs:  time.Since(s.startTime).Milliseconds(),
+	}
+
+	stats, err := s.store.TaskStats(ctx)
+	if err != nil {
+		s.logger.WarnKV("Failed to get task stats", "error", err)
+	} else if stats != nil {
+		resp.TotalRunningTasks = int32(stats.Running)
+		resp.TotalPendingTasks = int32(stats.Pending)
+	}
+
+	return resp, nil
+}
+
+// UpdateNodeLabels 更新节点标签（类似 kubectl label）
+func (s *AdminService) UpdateNodeLabels(ctx context.Context, req *pb.UpdateNodeLabelsRequest) (*pb.UpdateNodeLabelsResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	if node, ok := s.pool.Get(req.NodeId); ok {
+		labels := node.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		for k, v := range req.Labels {
+			labels[k] = v
+		}
+		s.logger.InfoKV("Labels updated on worker node", "node_id", req.NodeId, "label_count", len(req.Labels))
+		return &pb.UpdateNodeLabelsResponse{
+			Success: true,
+			Message: fmt.Sprintf("labels updated on node %s", req.NodeId),
+		}, nil
+	}
+
+	if master, ok := s.masterPool.Get(req.NodeId); ok {
+		labels := master.GetLabels()
+		if labels == nil {
+			labels = make(map[string]string)
+		}
+		for k, v := range req.Labels {
+			labels[k] = v
+		}
+		s.logger.InfoKV("Labels updated on master node", "node_id", req.NodeId, "label_count", len(req.Labels))
+		return &pb.UpdateNodeLabelsResponse{
+			Success: true,
+			Message: fmt.Sprintf("labels updated on master %s", req.NodeId),
+		}, nil
+	}
+
+	return nil, fmt.Errorf(common.ErrNodeNotFound, req.NodeId)
+}
+
+// AdminCancelTask 管理端取消任务
+func (s *AdminService) AdminCancelTask(ctx context.Context, req *pb.AdminCancelTaskRequest) (*pb.AdminCancelTaskResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	s.logger.InfoKV("Task cancel requested", "task_id", req.TaskId, "reason", req.Reason, "force", req.Force)
+
+	return &pb.AdminCancelTaskResponse{
+		Success: true,
+		Message: fmt.Sprintf("task %s cancel requested", req.TaskId),
+	}, nil
+}
+
+// AdminRetryTask 管理端重试任务
+func (s *AdminService) AdminRetryTask(ctx context.Context, req *pb.AdminRetryTaskRequest) (*pb.AdminRetryTaskResponse, error) {
+	if err := s.validateAuth(ctx); err != nil {
+		return nil, err
+	}
+
+	s.logger.InfoKV("Task retry requested", "task_id", req.TaskId, "target_node_id", req.TargetNodeId)
+
+	return &pb.AdminRetryTaskResponse{
+		Accepted: true,
+		Message:  fmt.Sprintf("task %s retry requested", req.TaskId),
+	}, nil
 }
 
 // matchLabels 检查节点标签是否匹配选择器

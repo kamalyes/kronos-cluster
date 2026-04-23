@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-27 10:00:00
- * @FilePath: \go-distributed\master\selector.go
+ * @FilePath: \kronos-cluster\master\selector.go
  * @Description: 节点选择策略 - 支持随机、最小负载、区域感知、轮询四种策略
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -14,7 +14,7 @@ import (
 	"math/rand"
 	"sort"
 
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 )
 
 // NodeSelector 节点选择器接口

@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 10:18:16
- * @FilePath: \go-distributed\logger\logger_test.go
+ * @FilePath: \kronos-cluster\logger\logger_test.go
  * @Description: 日志适配器单元测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

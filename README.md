@@ -1,8 +1,8 @@
-# go-distributed
+# kronos-cluster
 
-[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/kamalyes/go-distributed)](https://github.com/kamalyes/go-distributed)
-[![GoDoc](https://godoc.org/github.com/kamalyes/go-distributed?status.svg)](https://godoc.org/github.com/kamalyes/go-distributed)
-[![License](https://img.shields.io/github/license/kamalyes/go-distributed)](https://github.com/kamalyes/go-distributed/blob/main/LICENSE)
+[![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/kamalyes/kronos-cluster)](https://github.com/kamalyes/kronos-cluster)
+[![GoDoc](https://godoc.org/github.com/kamalyes/kronos-cluster?status.svg)](https://godoc.org/github.com/kamalyes/kronos-cluster)
+[![License](https://img.shields.io/github/license/kamalyes/kronos-cluster)](https://github.com/kamalyes/kronos-cluster/blob/main/LICENSE)
 
 🌐 一个通用的 Go 分布式任务调度系统，支持 Master-Worker 架构、gRPC/Redis 双协议、任务调度、健康检查、负载均衡等核心能力
 
@@ -13,11 +13,11 @@ graph TB
     subgraph "应用层"
         CLI["CLI 客户端 kubectl 风格"]
         App1["go-stress 压测工具"]
-        App2["go-scheduler 任务调度"]
+        App2["kronos-scheduler 任务调度"]
         AppN["其他项目..."]
     end
 
-    subgraph "go-distributed 核心层"
+    subgraph "kronos-cluster 核心层"
         subgraph "Master 节点"
             M[Master 主控制器]
             Pool[NodePool 工作节点池]
@@ -332,7 +332,7 @@ go run examples/cli.go taint remove worker-1 maintenance
 ### 安装
 
 ```bash
-go get github.com/kamalyes/go-distributed
+go get github.com/kamalyes/kronos-cluster
 ```
 
 ### Proto 代码生成
@@ -365,9 +365,9 @@ import (
     "fmt"
     "time"
 
-    "github.com/kamalyes/go-distributed/common"
-    "github.com/kamalyes/go-distributed/logger"
-    "github.com/kamalyes/go-distributed/master"
+    "github.com/kamalyes/kronos-cluster/common"
+    "github.com/kamalyes/kronos-cluster/logger"
+    "github.com/kamalyes/kronos-cluster/master"
 )
 
 func main() {
@@ -393,7 +393,7 @@ func main() {
         EnableAuth:    true,
         Secret:        "your-jwt-signing-secret",
         TokenExpiration: 24 * time.Hour,
-        TokenIssuer:   "go-distributed",
+        TokenIssuer:   "kronos-cluster",
         // JoinSecrets: Worker 加入集群的预共享密钥（类似 K8s Bootstrap Tokens）
         JoinSecrets: []*common.JoinSecretEntry{
             {
@@ -431,9 +431,9 @@ package main
 import (
     "context"
 
-    "github.com/kamalyes/go-distributed/common"
-    "github.com/kamalyes/go-distributed/logger"
-    "github.com/kamalyes/go-distributed/worker"
+    "github.com/kamalyes/kronos-cluster/common"
+    "github.com/kamalyes/kronos-cluster/logger"
+    "github.com/kamalyes/kronos-cluster/worker"
 )
 
 func main() {
@@ -475,10 +475,10 @@ import (
     "fmt"
     "time"
 
-    "github.com/kamalyes/go-distributed/cli"
-    "github.com/kamalyes/go-distributed/common"
-    "github.com/kamalyes/go-distributed/logger"
-    "github.com/kamalyes/go-distributed/proto"
+    "github.com/kamalyes/kronos-cluster/cli"
+    "github.com/kamalyes/kronos-cluster/common"
+    "github.com/kamalyes/kronos-cluster/logger"
+    "github.com/kamalyes/kronos-cluster/proto"
 )
 
 func main() {
@@ -492,7 +492,7 @@ func main() {
     )
 
     // 方式二：通过控制平面配置创建客户端（推荐，类似 kubeconfig）
-    // client, err := cli.NewClientFromConfigFile("~/.go-distributed/config.yaml")
+    // client, err := cli.NewClientFromConfigFile("~/.kronos-cluster/config.yaml")
 
     if err != nil {
         log.Fatal(err.Error())
@@ -643,7 +643,7 @@ m, _ := master.NewMaster[*common.BaseNodeInfo](&common.MasterConfig{
     EnableAuth:      true,
     Secret:          "your-jwt-signing-secret",
     TokenExpiration: 24 * time.Hour,
-    TokenIssuer:     "go-distributed",
+    TokenIssuer:     "kronos-cluster",
     // 多令牌管理（支持 TTL 和使用次数限制）
     JoinSecrets: []*common.JoinSecretEntry{
         {
@@ -690,7 +690,7 @@ w, _ := worker.NewWorker[*common.BaseNodeInfo](&common.WorkerConfig{
 
 类似 Kubernetes kubeconfig，CLI 客户端支持通过配置文件连接 Master，避免直接暴露地址和端口。
 
-**配置文件（`~/.go-distributed/config.yaml`）：**
+**配置文件（`~/.kronos-cluster/config.yaml`）：**
 
 ```yaml
 current_context: default
@@ -715,7 +715,7 @@ contexts:
 
 ```go
 // 从配置文件创建客户端（推荐）
-client, err := cli.NewClientFromConfigFile("~/.go-distributed/config.yaml")
+client, err := cli.NewClientFromConfigFile("~/.kronos-cluster/config.yaml")
 
 // 或直接从控制平面配置创建
 cpConfig := &common.ControlPlaneConfig{
@@ -852,7 +852,7 @@ selector := master.NewSelector[*common.BaseNodeInfo](
 ## 📁 项目结构
 
 ```bash
-go-distributed/
+kronos-cluster/
 ├── cli/                 # 🖥️ CLI 客户端
 │   ├── client.go        # Client gRPC 客户端
 │   ├── admin.go         # AdminService API 调用

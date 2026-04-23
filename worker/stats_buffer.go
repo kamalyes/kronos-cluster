@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-27 10:00:00
- * @FilePath: \go-distributed\worker\stats_buffer.go
+ * @FilePath: \kronos-cluster\worker\stats_buffer.go
  * @Description: 统计缓冲区 - 批量收集和刷写统计数据
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

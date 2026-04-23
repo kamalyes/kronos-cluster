@@ -12,7 +12,7 @@ package transport
 import (
 	"context"
 
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-logger"
 )
 

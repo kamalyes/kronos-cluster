@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 13:15:16
- * @FilePath: \go-distributed\common\cluster.go
+ * @FilePath: \kronos-cluster\common\cluster.go
  * @Description: 集群统计收集器
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

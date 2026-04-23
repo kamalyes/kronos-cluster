@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 10:17:08
- * @FilePath: \go-distributed\worker\worker_test.go
+ * @FilePath: \kronos-cluster\worker\worker_test.go
  * @Description: Worker 工作节点单元测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -15,8 +15,8 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/kamalyes/go-distributed/common"
-	"github.com/kamalyes/go-distributed/transport"
+	"github.com/kamalyes/kronos-cluster/common"
+	"github.com/kamalyes/kronos-cluster/transport"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/random"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"

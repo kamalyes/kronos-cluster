@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 00:00:00
- * @FilePath: \go-distributed\common\task_state.go
+ * @FilePath: \kronos-cluster\common\task_state.go
  * @Description: 任务状态枚举与状态机定义
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-27 18:25:25
- * @FilePath: \go-distributed\logger\logger.go
+ * @FilePath: \kronos-cluster\logger\logger.go
  * @Description: 日志适配器 - 封装 go-logger 提供分布式组件日志能力
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

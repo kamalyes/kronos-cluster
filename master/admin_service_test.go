@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 15:20:00
- * @FilePath: \go-distributed\master\admin_service_test.go
+ * @FilePath: \kronos-cluster\master\admin_service_test.go
  * @Description: Master AdminService gRPC 服务端实现测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
-	pb "github.com/kamalyes/go-distributed/proto"
+	"github.com/kamalyes/kronos-cluster/common"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 	"github.com/kamalyes/go-logger"
 	"github.com/stretchr/testify/assert"
 )

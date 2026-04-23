@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 15:33:52
- * @FilePath: \go-distributed\master\task_manager_test.go
+ * @FilePath: \kronos-cluster\master\task_manager_test.go
  * @Description: Master TaskManager测试
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -15,8 +15,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
-	"github.com/kamalyes/go-distributed/transport"
+	"github.com/kamalyes/kronos-cluster/common"
+	"github.com/kamalyes/kronos-cluster/transport"
 	"github.com/kamalyes/go-logger"
 	"github.com/stretchr/testify/assert"
 )

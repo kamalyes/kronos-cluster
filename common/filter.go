@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 13:39:58
- * @FilePath: \go-distributed\common\filter.go
+ * @FilePath: \kronos-cluster\common\filter.go
  * @Description: 节点过滤器 - 支持多维度过滤
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -11,7 +11,7 @@
 package common
 
 import (
-	pb "github.com/kamalyes/go-distributed/proto"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 	"github.com/kamalyes/go-toolbox/pkg/types"
 )
 

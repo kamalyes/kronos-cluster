@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-29 19:05:28
- * @FilePath: \go-distributed\examples\worker.go
+ * @FilePath: \kronos-cluster\examples\worker.go
  * @Description: 主程序 - 启动 Worker 工作控制器
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -15,9 +15,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
-	"github.com/kamalyes/go-distributed/logger"
-	"github.com/kamalyes/go-distributed/worker"
+	"github.com/kamalyes/kronos-cluster/common"
+	"github.com/kamalyes/kronos-cluster/logger"
+	"github.com/kamalyes/kronos-cluster/worker"
 	"github.com/kamalyes/go-toolbox/pkg/random"
 )
 

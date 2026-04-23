@@ -3,7 +3,7 @@ module examples
 go 1.25.0
 
 require (
-	github.com/kamalyes/go-distributed v0.0.0
+	github.com/kamalyes/kronos-cluster v0.0.0
 	github.com/kamalyes/go-toolbox v0.11.87
 )
 
@@ -32,4 +32,4 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
-replace github.com/kamalyes/go-distributed => ../
+replace github.com/kamalyes/kronos-cluster => ../

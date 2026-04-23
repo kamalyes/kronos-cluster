@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 18:09:18
- * @FilePath: \go-distributed\cli\client.go
+ * @FilePath: \kronos-cluster\cli\client.go
  * @Description: CLI 客户端 - 结构定义、配置选项、连接创建与关闭
  *
  * 支持两种连接方式:
@@ -22,8 +22,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
-	pb "github.com/kamalyes/go-distributed/proto"
+	"github.com/kamalyes/kronos-cluster/common"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/syncx"
 	"google.golang.org/grpc"

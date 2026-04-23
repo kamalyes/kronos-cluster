@@ -1,6 +1,6 @@
 # Examples
 
-本目录包含 go-distributed 项目的各种示例代码，帮助您快速理解和使用分布式任务系统
+本目录包含 kronos-cluster 项目的各种示例代码，帮助您快速理解和使用分布式任务系统
 
 ## 完整示例：任务提交与消费
 
@@ -29,7 +29,7 @@ examples/
 #### 前置要求
 
 - Go 1.25.0+
-- 依赖 go-distributed 库
+- 依赖 kronos-cluster 库
 
 #### 安装依赖
 
@@ -361,7 +361,7 @@ A: 可能原因：
 A: 使用 CLI 客户端：
 
 ```bash
-cd go-distributed
+cd kronos-cluster
 go run examples/cli/main.go list-tasks
 ```
 
@@ -464,7 +464,7 @@ if ctx.Err() == context.Canceled {
 
 ## 相关文档
 
-- [go-distributed 主 README](../README.md)
+- [kronos-cluster 主 README](../README.md)
 - [Master API 文档](../master/README.md)
 - [Worker API 文档](../worker/README.md)
 - [CLI 客户端文档](../cli/README.md)

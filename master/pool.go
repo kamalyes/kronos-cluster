@@ -3,7 +3,7 @@
  * @Date: 2026-03-27 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-29 13:55:35
- * @FilePath: \go-distributed\master\pool.go
+ * @FilePath: \kronos-cluster\master\pool.go
  * @Description: 节点池管理 - 线程安全的节点注册、查询和状态管理
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -17,7 +17,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/mathx"
 )

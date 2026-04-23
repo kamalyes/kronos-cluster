@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 00:00:00
- * @FilePath: \go-distributed\cli\lifecycle.go
+ * @FilePath: \kronos-cluster\cli\lifecycle.go
  * @Description: CLI 客户端 - 连接生命周期管理（启停、状态查询、健康探测）
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.
@@ -15,8 +15,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
-	pb "github.com/kamalyes/go-distributed/proto"
+	"github.com/kamalyes/kronos-cluster/common"
+	pb "github.com/kamalyes/kronos-cluster/proto"
 )
 
 // Start 启动客户端生命周期管理（健康检查 + 自动重连）

@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-29 18:52:15
- * @FilePath: \go-distributed\master\task_manager.go
+ * @FilePath: \kronos-cluster\master\task_manager.go
  * @Description: Master 任务管理器 - 负责任务创建、调度、追踪、重试和超时管理
  *
  * 核心设计:
@@ -25,8 +25,8 @@ package master
 import (
 	"context"
 	"fmt"
-	"github.com/kamalyes/go-distributed/common"
-	"github.com/kamalyes/go-distributed/transport"
+	"github.com/kamalyes/kronos-cluster/common"
+	"github.com/kamalyes/kronos-cluster/transport"
 	"github.com/kamalyes/go-logger"
 	"github.com/kamalyes/go-toolbox/pkg/errorx"
 	"github.com/kamalyes/go-toolbox/pkg/idgen"

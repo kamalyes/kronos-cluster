@@ -3,7 +3,7 @@
  * @Date: 2026-03-28 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-03-28 11:18:55
- * @FilePath: \go-distributed\common\task.go
+ * @FilePath: \kronos-cluster\common\task.go
  * @Description: 任务模型定义 - 任务信息、任务类型枚举、任务结果
  *
  * Copyright (c) 2026 by kamalyes, All Rights Reserved.

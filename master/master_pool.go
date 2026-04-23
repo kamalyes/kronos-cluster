@@ -3,7 +3,7 @@
  * @Date: 2026-04-21 00:00:00
  * @LastEditors: kamalyes 501893067@qq.com
  * @LastEditTime: 2026-04-21 00:00:00
- * @FilePath: \go-distributed\master\master_pool.go
+ * @FilePath: \kronos-cluster\master\master_pool.go
  * @Description: Master 节点池 - 管理集群中所有 Master 节点信息
  *
  * 支持多主多从架构：
@@ -21,7 +21,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/kamalyes/go-distributed/common"
+	"github.com/kamalyes/kronos-cluster/common"
 	"github.com/kamalyes/go-logger"
 )
 
